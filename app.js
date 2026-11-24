@@ -1,3 +1,5 @@
+const EMAIL_ADMIN_MASTER = 'lohanpereiradosreis@gmail.com';
+
 const GENEROS_DISPONIVEIS = [
   'Ficção',
   'Não Ficção',
@@ -286,13 +288,14 @@ async function garantirPerfilUsuario(user, nomeInformado = '', fotoUrl = '') {
   const existente = todosPerfis[user.id];
   const nomeFinal = nomeInformado.trim() || existente?.nome || user.email?.split('@')[0] || 'Leitor(a)';
   const fotoFinal = fotoUrl || existente?.foto_url || '';
+  const isMaster = (user.email || '').toLowerCase() === EMAIL_ADMIN_MASTER.toLowerCase();
 
   const payload = {
     id: user.id,
     email: user.email || '',
     nome: nomeFinal,
     foto_url: fotoFinal,
-    pode_publicar_resenha: existente ? Boolean(existente.pode_publicar_resenha) : false
+    pode_publicar_resenha: isMaster ? true : (existente ? Boolean(existente.pode_publicar_resenha) : false)
   };
 
   const { data, error } = await supabaseClient
@@ -323,8 +326,11 @@ async function verificarSessao() {
 }
 
 function atualizarInterfaceSessao() {
-  ehAdminMaster = Boolean(usuarioLogado);
-  const podeResenha = Boolean(perfilUsuarioLogado?.pode_publicar_resenha);
+  ehAdminMaster = Boolean(
+    usuarioLogado &&
+    (usuarioLogado.email || '').toLowerCase() === EMAIL_ADMIN_MASTER.toLowerCase()
+  );
+  const podeResenha = Boolean(ehAdminMaster || perfilUsuarioLogado?.pode_publicar_resenha);
 
   if (usuarioLogado) {
     secaoContaUsuario.classList.add('oculto');
@@ -332,22 +338,23 @@ function atualizarInterfaceSessao() {
     btnAbrirConta.classList.add('oculto');
     btnAbrirLogin.classList.add('oculto');
     btnSair.classList.remove('oculto');
-    painelAdmin.classList.remove('oculto');
 
     const nomeExibido = perfilUsuarioLogado?.nome || usuarioLogado.email;
     const fotoExibida = perfilUsuarioLogado?.foto_url || avatarPadrao(nomeExibido);
     badgeUsuario.classList.remove('oculto');
     badgeUsuario.innerHTML = `
       <img src="${escaparHTML(fotoExibida)}" alt="${escaparHTML(nomeExibido)}">
-      <span>${escaparHTML(nomeExibido)}</span>
+      <span>${escaparHTML(nomeExibido)}${ehAdminMaster ? ' • Admin Master' : ''}</span>
     `;
   } else {
     badgeUsuario.classList.add('oculto');
     btnAbrirConta.classList.remove('oculto');
     btnAbrirLogin.classList.remove('oculto');
     btnSair.classList.add('oculto');
-    painelAdmin.classList.add('oculto');
   }
+
+  // Somente o Admin Master vê o painel de administração completo
+  painelAdmin.classList.toggle('oculto', !ehAdminMaster);
 
   const btnNovaResenha = document.getElementById('btn-toggle-resenha-individual');
   if (btnNovaResenha) {
@@ -357,7 +364,9 @@ function atualizarInterfaceSessao() {
     document.getElementById('box-resenha-individual')?.classList.add('oculto');
   }
 
-  renderizarUsuariosAdmin();
+  if (ehAdminMaster) {
+    renderizarUsuariosAdmin();
+  }
   renderizarIndicacoes();
   renderizarTela();
 }
@@ -450,6 +459,11 @@ document.getElementById('btn-entrar').onclick = async () => {
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if (error) return alert('Erro ao entrar: ' + error.message);
 
+  if ((data.user?.email || '').toLowerCase() !== EMAIL_ADMIN_MASTER.toLowerCase()) {
+    await supabaseClient.auth.signOut();
+    return alert('Esta conta não tem permissão de Admin Master.');
+  }
+
   usuarioLogado = data.user;
   await carregarPerfis();
   await garantirPerfilUsuario(data.user);
@@ -472,6 +486,7 @@ const abaUsuarios = document.getElementById('aba-usuarios');
 const abaGuia = document.getElementById('aba-guia');
 
 function ativarAbaAdmin(abaAtiva) {
+  if (!ehAdminMaster) return;
   abaLivro.classList.toggle('oculto', abaAtiva !== 'livro');
   abaUsuarios.classList.toggle('oculto', abaAtiva !== 'usuarios');
   abaGuia.classList.toggle('oculto', abaAtiva !== 'guia');
@@ -491,7 +506,7 @@ tabBtnGuia.onclick = () => ativarAbaAdmin('guia');
 
 function renderizarUsuariosAdmin() {
   const container = document.getElementById('lista-usuarios-admin');
-  if (!container) return;
+  if (!container || !ehAdminMaster) return;
 
   const listaPerfis = Object.values(todosPerfis);
   if (!listaPerfis.length) {
@@ -500,29 +515,33 @@ function renderizarUsuariosAdmin() {
   }
 
   container.innerHTML = listaPerfis.map(p => {
-    const habilitado = Boolean(p.pode_publicar_resenha);
+    const isMasterItem = (p.email || '').toLowerCase() === EMAIL_ADMIN_MASTER.toLowerCase();
+    const habilitado = isMasterItem || Boolean(p.pode_publicar_resenha);
     return `
       <div class="usuario-item-admin">
         <div class="usuario-info-admin">
           <img src="${escaparHTML(p.foto_url || avatarPadrao(p.nome))}" alt="${escaparHTML(p.nome)}">
           <div>
-            <strong>${escaparHTML(p.nome)}</strong><br>
+            <strong>${escaparHTML(p.nome)}</strong> ${isMasterItem ? '<span class="tag tag-nota">Admin Master</span>' : ''}<br>
             <small>${escaparHTML(p.email || '')}</small>
           </div>
         </div>
-        <button
-          type="button"
-          class="${habilitado ? 'btn-primario' : 'btn-secundario'}"
-          onclick="alternarPermissaoResenha('${escaparHTML(p.id)}', ${!habilitado})"
-        >
-          ${habilitado ? '✅ Pode Publicar Resenhas (Clique p/ revogar)' : '🔒 Habilitar Resenhas Individuais'}
-        </button>
+        ${isMasterItem
+          ? '<small>Permissão total</small>'
+          : `<button
+               type="button"
+               class="${habilitado ? 'btn-primario' : 'btn-secundario'}"
+               onclick="alternarPermissaoResenha('${escaparHTML(p.id)}', ${!habilitado})"
+             >
+               ${habilitado ? '✅ Pode Publicar Resenhas (Clique p/ revogar)' : '🔒 Habilitar Resenhas Individuais'}
+             </button>`}
       </div>
     `;
   }).join('');
 }
 
 window.alternarPermissaoResenha = async (userId, novoValor) => {
+  if (!ehAdminMaster) return alert('Apenas o Admin Master pode alterar permissões.');
   const { error } = await supabaseClient
     .from('perfis_clube')
     .update({ pode_publicar_resenha: Boolean(novoValor) })
@@ -559,6 +578,8 @@ async function carregarGuia() {
 
 document.getElementById('form-guia').onsubmit = async (e) => {
   e.preventDefault();
+  if (!ehAdminMaster) return alert('Apenas o Admin Master pode editar o guia.');
+
   const btn = document.getElementById('btn-salvar-guia');
   btn.disabled = true;
   btn.textContent = 'Salvando...';
@@ -770,6 +791,10 @@ document.getElementById('input-busca-livro').addEventListener('keydown', (e) => 
 // 4. Salvar ou Atualizar Módulo + Compressão de Fotos
 document.getElementById('form-encontro').onsubmit = async (e) => {
   e.preventDefault();
+  if (!ehAdminMaster) {
+    return alert('Apenas o Admin Master pode publicar ou editar módulos principais.');
+  }
+
   const generosSelecionados = obterGenerosSelecionados();
   if (!generosSelecionados.length) {
     return alert('Selecione pelo menos um gênero para o livro.');
@@ -837,13 +862,18 @@ document.getElementById('form-encontro').onsubmit = async (e) => {
 
 // Resenhas / Leituras Individuais (para usuários habilitados)
 document.getElementById('btn-toggle-resenha-individual').onclick = () => {
+  const podeResenha = Boolean(ehAdminMaster || perfilUsuarioLogado?.pode_publicar_resenha);
+  if (!usuarioLogado || !podeResenha) {
+    return alert('Sua conta ainda não está habilitada pelo Admin Master para publicar resenhas individuais.');
+  }
   document.getElementById('box-resenha-individual').classList.toggle('oculto');
 };
 
 document.getElementById('form-resenha-individual').onsubmit = async (e) => {
   e.preventDefault();
-  if (!usuarioLogado || !perfilUsuarioLogado?.pode_publicar_resenha) {
-    return alert('Sua conta ainda não está habilitada para publicar resenhas individuais.');
+  const podeResenha = Boolean(ehAdminMaster || perfilUsuarioLogado?.pode_publicar_resenha);
+  if (!usuarioLogado || !podeResenha) {
+    return alert('Sua conta ainda não está habilitada pelo Admin Master para publicar resenhas individuais.');
   }
 
   const btn = document.getElementById('btn-publicar-resenha');
@@ -860,7 +890,7 @@ document.getElementById('form-resenha-individual').onsubmit = async (e) => {
     genero: document.getElementById('resenha-genero').value || 'Outro',
     status: 'lido',
     data_encontro: hojeISO,
-    horario_local: `Leitura individual de ${perfilUsuarioLogado.nome}`,
+    horario_local: `Leitura individual de ${perfilUsuarioLogado.nome || usuarioLogado.email}`,
     paginas_totais: parseInt(document.getElementById('resenha-paginas').value, 10) || 0,
     pagina_meta: 0,
     meta_texto: '',
@@ -888,7 +918,15 @@ document.getElementById('form-resenha-individual').onsubmit = async (e) => {
 // Edição e Exclusão
 window.prepararEdicao = (id) => {
   const item = todosEncontros.find(e => e.id === id);
-  if (!item) return;
+  if (!item || !usuarioLogado) return;
+
+  const ehIndividual = (item.tipo_postagem || 'clube') === 'individual';
+  const podeEditar = ehAdminMaster || (ehIndividual && item.autor_postagem_id === usuarioLogado.id);
+  if (!podeEditar) return alert('Você não tem permissão para editar este item.');
+
+  if (!ehAdminMaster) {
+    return alert('A edição completa de campos fica disponível para o Admin Master.');
+  }
 
   ativarAbaAdmin('livro');
   document.getElementById('titulo-form-admin').textContent = `✏️ Editando: ${item.titulo}`;
@@ -921,6 +959,13 @@ window.prepararEdicao = (id) => {
 };
 
 window.excluirModulo = async (id, titulo) => {
+  const item = todosEncontros.find(e => e.id === id);
+  if (!item || !usuarioLogado) return;
+
+  const ehIndividual = (item.tipo_postagem || 'clube') === 'individual';
+  const podeExcluir = ehAdminMaster || (ehIndividual && item.autor_postagem_id === usuarioLogado.id);
+  if (!podeExcluir) return alert('Você não tem permissão para excluir este item.');
+
   if (!confirm(`Tem certeza que deseja excluir o registro de "${titulo}"?`)) return;
   const { error } = await supabaseClient.from('encontros').delete().eq('id', id);
   if (error) return alert('Erro ao excluir: ' + error.message);
@@ -950,7 +995,11 @@ document.getElementById('btn-cancelar-edicao').onclick = resetarFormulario;
 
 // 5. Notas, Comentários, Indicações e Votos
 function calcularMediaLivro(encontroId, notaBase = null) {
-  const notasUsuarios = todosAvaliacoes
+  const baseAvaliacoes = typeof todasAvaliacoes !== 'undefined' && Array.isArray(todasAvaliacoes)
+    ? todasAvaliacoes
+    : [];
+
+  const notasUsuarios = baseAvaliacoes
     .filter(a => a.encontro_id === encontroId)
     .map(a => Number(a.nota));
 
@@ -1133,7 +1182,7 @@ function renderizarIndicacoes() {
     const meuVoto = usuarioLogado && votosDaIndicacao.some(v => v.usuario_id === usuarioLogado.id);
     const perfilAutor = todosPerfis[ind.usuario_id];
     const nomeAutorInd = perfilAutor?.nome || 'Membro do Clube';
-    const podeApagar = usuarioLogado && ind.usuario_id === usuarioLogado.id;
+    const podeApagar = usuarioLogado && (ehAdminMaster || ind.usuario_id === usuarioLogado.id);
 
     return `
       <div class="indicacao-card">
@@ -1170,7 +1219,7 @@ async function carregarComunidade() {
     supabaseClient.from('votos_indicacao').select('*')
   ]);
 
-  if (resAv.status === 'fulfilled' && !resAv.value.error) todosAvaliacoes = resAv.value.data || [];
+  if (resAv.status === 'fulfilled' && !resAv.value.error) todasAvaliacoes = resAv.value.data || [];
   if (resCom.status === 'fulfilled' && !resCom.value.error) todosComentarios = resCom.value.data || [];
   if (resInd.status === 'fulfilled' && !resInd.value.error) todasIndicacoes = resInd.value.data || [];
   if (resVot.status === 'fulfilled' && !resVot.value.error) todosVotos = resVot.value.data || [];
@@ -1244,7 +1293,7 @@ function renderizarBlocoComentarios(encontroId) {
         const perfil = todosPerfis[c.usuario_id] || {};
         const nome = perfil.nome || 'Membro do Clube';
         const foto = perfil.foto_url || avatarPadrao(nome);
-        const podeApagar = usuarioLogado && c.usuario_id === usuarioLogado.id;
+        const podeApagar = usuarioLogado && (ehAdminMaster || c.usuario_id === usuarioLogado.id);
         return `
           <div class="comentario-item">
             <img class="comentario-avatar" src="${escaparHTML(foto)}" alt="${escaparHTML(nome)}" loading="lazy">
@@ -1349,7 +1398,7 @@ function renderizarTela() {
 
     const botoesAdmin = podeGerenciarModulo
       ? `<div style="display:flex; gap:6px;">
-           <button onclick="prepararEdicao(${item.id})" class="btn-secundario">✏️ Editar</button>
+           ${ehAdminMaster ? `<button onclick="prepararEdicao(${item.id})" class="btn-secundario">✏️ Editar</button>` : ''}
            <button onclick="excluirModulo(${item.id}, '${escaparHTML(item.titulo).replace(/'/g, "\\'")}')" class="btn-perigo">🗑️</button>
          </div>`
       : '';
@@ -1425,6 +1474,5 @@ document.getElementById('filtro-genero').onchange = renderizarTela;
 document.getElementById('filtro-texto').oninput = renderizarTela;
 
 montarSeletoresDeGenero();
-verificarSessao();
 carregarGuia();
-carregarEncontros();
+carregarEncontros().then(verificarSessao);
