@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clube do Livro - Acompanhamento</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>📚 Nosso Clube do Livro</h1>
+      <small>Acompanhamento de leituras físicas, metas e encontros</small>
+    </div>
+    <div>
+      <button id="btn-abrir-login" class="btn-secundario">Área Admin</button>
+      <button id="btn-sair" class="btn-perigo oculto">Sair do Admin</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- PLACAR DE PERFORMANCE DO CLUBE -->
+    <section class="placar-grid">
+      <div class="stat-card">
+        <span id="stat-livros" class="stat-numero">0</span>
+        <span class="stat-label">Livros Concluídos</span>
+      </div>
+      <div class="stat-card">
+        <span id="stat-paginas" class="stat-numero">0</span>
+        <span class="stat-label">Páginas Lidas</span>
+      </div>
+      <div class="stat-card">
+        <span id="stat-media" class="stat-numero">-</span>
+        <span class="stat-label">Nota Média do Clube</span>
+      </div>
+    </section>
+
+    <!-- MODAL DE LOGIN -->
+    <section id="secao-login" class="card oculto">
+      <h2>Login do Administrador</h2>
+      <input type="email" id="admin-email" placeholder="E-mail do admin">
+      <input type="password" id="admin-senha" placeholder="Senha">
+      <button id="btn-entrar" class="btn-primario">Entrar</button>
+      <button id="btn-fechar-login" class="btn-secundario">Cancelar</button>
+    </section>
+
+    <!-- PAINEL DO ADMINISTRADOR -->
+    <section id="painel-admin" class="card admin-box oculto">
+      <div class="abas-admin">
+        <button type="button" id="tab-btn-livro" class="btn-primario">📖 Gerenciar Livros / Encontros</button>
+        <button type="button" id="tab-btn-guia" class="btn-secundario">🧭 Editar Guia de Discussão</button>
+      </div>
+
+      <!-- ABA 1: FORMULÁRIO DE LIVRO E ENCONTRO -->
+      <div id="aba-livro">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
+          <h2 id="titulo-form-admin" style="margin:0;">⚙️ Novo Módulo / Leitura</h2>
+          <button type="button" id="btn-cancelar-edicao" class="btn-secundario oculto">Cancelar Edição</button>
+        </div>
+
+        <div class="busca-api" style="margin-top:1rem;">
+          <label>1. Buscar Livro (Puxa capa, autor e total de páginas):</label>
+          <div class="linha-busca">
+            <input type="text" id="input-busca-livro" placeholder="Digite o nome do livro ou autor...">
+            <button type="button" id="btn-buscar-api" class="btn-primario">Buscar</button>
+          </div>
+          <div id="resultados-api" class="grid-resultados"></div>
+        </div>
+
+        <hr>
+
+        <form id="form-encontro">
+          <input type="hidden" id="edit-id">
+          <input type="hidden" id="edit-fotos-existentes">
+
+          <label>2. Informações do Livro Físico:</label>
+          <input type="text" id="livro-titulo" placeholder="Título do Livro" required>
+          <input type="text" id="livro-autor" placeholder="Autor(a)" required>
+          <input type="text" id="livro-capa" placeholder="URL da Capa">
+
+          <div class="linha-dupla">
+            <select id="livro-genero" required>
+              <option value="">Selecione o Gênero...</option>
+              <option value="Filosófico">Filosófico</option>
+              <option value="Literatura Clássica">Literatura Clássica</option>
+              <option value="Ficção Científica">Ficção Científica</option>
+              <option value="Romance">Romance</option>
+              <option value="Suspense / Terror">Suspense / Terror</option>
+              <option value="Outro">Outro</option>
+            </select>
+
+            <select id="livro-status" required>
+              <option value="atual">📖 Leitura Atual (Em andamento)</option>
+              <option value="proximo">📅 Próxima Leitura (Na fila)</option>
+              <option value="lido">✅ Concluído (Histórico)</option>
+            </select>
+          </div>
+
+          <label>3. Cronograma e Meta de Acompanhamento:</label>
+          <div class="linha-dupla">
+            <input type="date" id="encontro-data" required title="Data do Encontro">
+            <input type="text" id="encontro-local" placeholder="Horário e Local (ex: 16h - Café Central)">
+          </div>
+
+          <div class="linha-dupla">
+            <input type="number" id="livro-paginas-totais" placeholder="Total de páginas do livro" min="0">
+            <input type="number" id="livro-pagina-meta" placeholder="Página atual / Meta alcançada" min="0">
+            <input type="number" id="livro-nota" placeholder="Nota do Clube (0 a 5)" step="0.1" min="0" max="5">
+          </div>
+
+          <input type="text" id="livro-meta-texto" placeholder="Meta da semana (ex: Ler até o Cap. 4 - pág. 95 até sexta)">
+
+          <label>4. Resumo da Vida do Escritor:</label>
+          <textarea id="autor-bio" rows="3" placeholder="Breve biografia e contexto histórico do autor..."></textarea>
+
+          <label>5. Discussões, Citações e Impressões do Encontro:</label>
+          <textarea id="encontro-discussao" rows="4" placeholder="Tópicos debatidos (ficará protegido por aviso de spoiler)..."></textarea>
+
+          <label>6. Fotos do Encontro (Compressão automática ativada):</label>
+          <input type="file" id="encontro-fotos" accept="image/*" multiple>
+
+          <button type="submit" id="btn-salvar-modulo" class="btn-primario">Publicar no Site</button>
+        </form>
+      </div>
+
+      <!-- ABA 2: EDITAR GUIA DE DISCUSSÃO -->
+      <div id="aba-guia" class="oculto" style="margin-top:1rem;">
+        <h2>🧭 Personalizar Guia de Discussão e Orientações</h2>
+        <p><small>Adapte as perguntas e o roteiro de acordo com o gênero ou livro que o clube está lendo.</small></p>
+        <form id="form-guia">
+          <label>Título da Caixa do Guia:</label>
+          <input type="text" id="guia-titulo-input" required>
+
+          <label>Conteúdo (Roteiro, Perguntas-chave e Combinados):</label>
+          <textarea id="guia-conteudo-input" rows="12" required></textarea>
+
+          <button type="submit" id="btn-salvar-guia" class="btn-primario">Salvar Guia Atualizado</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- DESTAQUE: LEITURA ATUAL -->
+    <section id="destaque-atual" class="destaque-box">
+      <h2>📖 Leitura Atual & Próximo Encontro</h2>
+      <div id="conteudo-atual">Carregando...</div>
+    </section>
+
+    <!-- GUIA DE DISCUSSÃO EDITÁVEL (RETRÁTIL) -->
+    <section class="card guia-box">
+      <details>
+        <summary id="guia-titulo-exibicao">🧭 Guia do Clube: Como abordar o livro e conduzir nossas discussões</summary>
+        <div id="guia-conteudo-exibicao" class="guia-texto">Carregando orientações...</div>
+      </details>
+    </section>
+
+    <!-- FILTROS -->
+    <section class="filtros-box">
+      <h3>Histórico e Fila de Leituras</h3>
+      <div class="linha-filtros">
+        <select id="filtro-status">
+          <option value="todos">Todos os Status</option>
+          <option value="lido">✅ Concluídos</option>
+          <option value="proximo">📅 Próximas Leituras</option>
+          <option value="atual">📖 Em Andamento</option>
+        </select>
+        <select id="filtro-genero">
+          <option value="todos">Todos os Gêneros</option>
+          <option value="Filosófico">Filosófico</option>
+          <option value="Literatura Clássica">Literatura Clássica</option>
+          <option value="Ficção Científica">Ficção Científica</option>
+          <option value="Romance">Romance</option>
+          <option value="Suspense / Terror">Suspense / Terror</option>
+          <option value="Outro">Outro</option>
+        </select>
+        <input type="text" id="filtro-texto" placeholder="Buscar por escritor ou título...">
+      </div>
+    </section>
+
+    <!-- MÓDULOS DE ENCONTROS -->
+    <section id="lista-encontros" class="modulos-container"></section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
