@@ -31,6 +31,11 @@ body {
   color: var(--texto);
   line-height: 1.62;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
 }
 
 h1, h2, h3, h4, .stat-numero {
@@ -684,6 +689,15 @@ button:active, .btn-agenda:active {
   align-items: center;
 }
 
+.destaque-box .modulo-info-topo > img {
+  width: 180px;
+  height: 260px;
+  flex: 0 0 180px;
+  object-fit: contain;
+  border-radius: 7px;
+  background: #f1ede5;
+}
+
 .modulo-cabecalho img {
   width: 70px;
   height: 102px;
@@ -904,6 +918,15 @@ details.spoiler-box summary {
     padding: 1.2rem 1.1rem;
   }
 
+  header h1 {
+    font-size: 1.38rem;
+  }
+
+  .header-acoes,
+  .header-acoes > * {
+    max-width: 100%;
+  }
+
   main {
     padding: 0 0.85rem;
     margin-top: 1.25rem;
@@ -911,6 +934,89 @@ details.spoiler-box summary {
 
   .card, .destaque-box, .filtros-box, .modulo-corpo, .modulo-cabecalho {
     padding: 1.15rem;
+  }
+
+  .placar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .destaque-box .modulo-info-topo,
+  .modulo-cabecalho .modulo-info-topo {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .destaque-box .modulo-info-topo {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .destaque-box .modulo-info-topo > img {
+    width: min(100%, 240px);
+    height: auto;
+    max-height: none;
+    align-self: center;
+    object-fit: contain;
+  }
+
+  .destaque-box .modulo-info-topo > div {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .modulo-cabecalho {
+    flex-direction: column;
+  }
+
+  .modulo-cabecalho .modulo-info-topo {
+    align-items: flex-start;
+  }
+
+  .modulo-cabecalho .modulo-info-topo > div {
+    min-width: 0;
+  }
+
+  .linha-dupla > *,
+  .linha-filtros > *,
+  .linha-busca > * {
+    flex-basis: 100%;
+  }
+
+  .linha-busca button,
+  .comunidade-cabecalho > button {
+    width: 100%;
+  }
+
+  .comunidade-cabecalho,
+  .indicacao-card,
+  .usuario-item-admin,
+  .avaliacao-controles {
+    width: 100%;
+  }
+
+  .indicacao-card,
+  .usuario-item-admin,
+  .avaliacao-controles {
+    align-items: stretch;
+  }
+
+  .indicacao-acoes,
+  .indicacao-acoes > button,
+  .avaliacao-controles > * {
+    width: 100%;
+  }
+
+  .indicacao-autor-linha {
+    align-items: flex-start;
+  }
+
+  .destaque-box h2,
+  .modulo-info-topo h3,
+  .tag,
+  .linha-meta-modulo,
+  .indicacao-info,
+  .usuario-info-admin {
+    overflow-wrap: anywhere;
   }
 
   .galeria-fotos img {
