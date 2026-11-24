@@ -66,10 +66,10 @@
         </div>
 
         <div class="busca-api" style="margin-top:1rem;">
-          <label>1. Buscar Livro (Puxa capa, autor e total de páginas):</label>
+          <label>1. Buscar Livro na Internet (Preenche capa, autor, páginas e prévia automaticamente):</label>
           <div class="linha-busca">
-            <input type="text" id="input-busca-livro" placeholder="Digite o nome do livro ou autor...">
-            <button type="button" id="btn-buscar-api" class="btn-primario">Buscar</button>
+            <input type="text" id="input-busca-livro" placeholder="Digite o nome do livro ou autor (ex: Walden, Dom Casmurro)...">
+            <button type="button" id="btn-buscar-api" class="btn-primario">Buscar na Web</button>
           </div>
           <div id="resultados-api" class="grid-resultados"></div>
         </div>
@@ -119,8 +119,8 @@
 
           <input type="text" id="livro-meta-texto" placeholder="Meta da semana (ex: Ler até o Cap. 4 - pág. 95 até sexta)">
 
-          <label>4. Resumo da Vida do Escritor:</label>
-          <textarea id="autor-bio" rows="3" placeholder="Breve biografia e contexto histórico do autor..."></textarea>
+          <label>4. Resumo da Vida do Escritor / Contexto da Obra:</label>
+          <textarea id="autor-bio" rows="4" placeholder="Breve biografia, contexto histórico do autor ou sinopse inicial..."></textarea>
 
           <label>5. Discussões, Citações e Impressões do Encontro:</label>
           <textarea id="encontro-discussao" rows="4" placeholder="Tópicos debatidos (ficará protegido por aviso de spoiler)..."></textarea>

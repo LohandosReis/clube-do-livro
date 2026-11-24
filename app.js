@@ -136,11 +136,44 @@ function obterGenerosSelecionados() {
     .filter(Boolean);
 }
 
-function definirGenerosSelecionados(generoValor) {
-  const selecionados = new Set(parseGeneros(generoValor).map(g => g.toLowerCase()));
+function definirGenerosSelecionados(generoValor, mesclar = false) {
+  const novos = new Set(parseGeneros(generoValor).map(g => g.toLowerCase()));
   document.querySelectorAll('.checkbox-genero').forEach(el => {
-    el.checked = selecionados.has(el.value.toLowerCase());
+    const match = novos.has(el.value.toLowerCase());
+    if (mesclar) {
+      if (match) el.checked = true;
+    } else {
+      el.checked = match;
+    }
   });
+}
+
+function mapearCategoriasApiParaGeneros(categorias = []) {
+  const textoCats = categorias.join(' ').toLowerCase();
+  const encontrados = [];
+  const adicionar = (nome) => {
+    if (GENEROS_DISPONIVEIS.includes(nome) && !encontrados.includes(nome)) {
+      encontrados.push(nome);
+    }
+  };
+
+  if (/philosoph|filosof/i.test(textoCats)) adicionar('Filosofia');
+  if (/politic|polític/i.test(textoCats)) adicionar('Política');
+  if (/histor|histór/i.test(textoCats)) adicionar('História');
+  if (/psycholog|psicolog/i.test(textoCats)) adicionar('Psicologia');
+  if (/scien|ciênci/i.test(textoCats)) adicionar('Ciência / Divulgação Científica');
+  if (/fiction|ficç/i.test(textoCats)) adicionar('Ficção');
+  if (/fantasy|fantasi/i.test(textoCats)) adicionar('Fantasia');
+  if (/thriller|suspense/i.test(textoCats)) adicionar('Suspense');
+  if (/horror|terror/i.test(textoCats)) adicionar('Terror / Horror');
+  if (/romance|love/i.test(textoCats)) adicionar('Romance');
+  if (/poetr|poesi/i.test(textoCats)) adicionar('Poesia');
+  if (/biograph|biograf|memór/i.test(textoCats)) adicionar('Biografia / Memórias');
+  if (/sociolog/i.test(textoCats)) adicionar('Sociologia');
+  if (/econom|business|finanç/i.test(textoCats)) adicionar('Economia / Finanças');
+  if (/classic|clássic/i.test(textoCats)) adicionar('Literatura Clássica');
+
+  return encontrados;
 }
 
 document.getElementById('btn-limpar-generos').onclick = () => {
@@ -283,47 +316,128 @@ document.getElementById('form-guia').onsubmit = async (e) => {
   carregarGuia();
 };
 
-// 3. Buscar Livro no Google Books
+// 3. Buscar Livro na Internet (OpenLibrary como principal + fallback Google Books)
+async function buscarNaOpenLibrary(termo) {
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(termo)}&limit=8`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`OpenLibrary HTTP ${res.status}`);
+  const dados = await res.json();
+  const docs = Array.isArray(dados.docs) ? dados.docs : [];
+
+  return docs.map(doc => {
+    const titulo = doc.title || 'Sem título';
+    const autor = Array.isArray(doc.author_name) && doc.author_name.length
+      ? doc.author_name.join(', ')
+      : 'Autor desconhecido';
+    const paginas = doc.number_of_pages_median || '';
+    const capa = doc.cover_i
+      ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
+      : 'https://placehold.co/95x135?text=Sem+Capa';
+    const categorias = Array.isArray(doc.subject) ? doc.subject.slice(0, 8) : [];
+    const ano = doc.first_publish_year ? `Primeira publicação: ${doc.first_publish_year}.` : '';
+    const descricao = ano ? `${ano} Obra catalogada na OpenLibrary.` : '';
+
+    return { titulo, autor, capa, paginas, categorias, descricao };
+  });
+}
+
+async function buscarNoGoogleBooks(termo) {
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}&maxResults=8&printType=books`;
+  const res = await fetch(url);
+  if (res.status === 429) {
+    const err = new Error('Google Books rate limit (429)');
+    err.code = 429;
+    throw err;
+  }
+  if (!res.ok) throw new Error(`Google Books HTTP ${res.status}`);
+  const dados = await res.json();
+  const items = Array.isArray(dados.items) ? dados.items : [];
+
+  return items.map(item => {
+    const info = item.volumeInfo || {};
+    const titulo = info.subtitle ? `${info.title}: ${info.subtitle}` : (info.title || 'Sem título');
+    const capaRaw = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || '';
+    const capa = capaRaw
+      ? capaRaw.replace(/^http:/, 'https:').replace('&edge=curl', '')
+      : 'https://placehold.co/95x135?text=Sem+Capa';
+    const autor = Array.isArray(info.authors) && info.authors.length ? info.authors.join(', ') : 'Autor desconhecido';
+    const paginas = info.pageCount || '';
+    const categorias = Array.isArray(info.categories) ? info.categories : [];
+    const descricao = info.description || '';
+
+    return { titulo, autor, capa, paginas, categorias, descricao };
+  });
+}
+
 document.getElementById('btn-buscar-api').onclick = async () => {
   const termo = document.getElementById('input-busca-livro').value.trim();
   if (!termo) return;
 
   const container = document.getElementById('resultados-api');
-  container.innerHTML = '<small>Buscando livros...</small>';
+  container.innerHTML = '<small>Buscando na internet...</small>';
 
   try {
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}&maxResults=5`);
-    const dados = await res.json();
+    let resultados = await buscarNaOpenLibrary(termo);
+
+    if (!resultados.length) {
+      try {
+        resultados = await buscarNoGoogleBooks(termo);
+      } catch (gbErr) {
+        if (gbErr.code !== 429) throw gbErr;
+      }
+    }
+
     container.innerHTML = '';
 
-    if (!dados.items || !dados.items.length) {
-      container.innerHTML = '<small>Nenhum livro encontrado.</small>';
+    if (!resultados.length) {
+      container.innerHTML = '<small>Nenhum livro encontrado na internet para esse termo. Tente outro título ou nome do autor.</small>';
       return;
     }
 
-    dados.items.forEach(item => {
-      const info = item.volumeInfo || {};
-      const capa = info.imageLinks?.thumbnail?.replace('http:', 'https:') || 'https://placehold.co/95x135?text=Sem+Capa';
-      const autor = info.authors ? info.authors.join(', ') : 'Autor desconhecido';
-      const paginas = info.pageCount || '';
-
+    resultados.forEach(livro => {
       const div = document.createElement('div');
       div.className = 'item-api';
-      div.innerHTML = `<img src="${escaparHTML(capa)}" alt="${escaparHTML(info.title || 'Capa')}"><p><strong>${escaparHTML(info.title || 'Sem título')}</strong><br><small>${escaparHTML(autor)}</small></p>`;
+      div.innerHTML = `
+        <img src="${escaparHTML(livro.capa)}" alt="${escaparHTML(livro.titulo)}" loading="lazy">
+        <p><strong>${escaparHTML(livro.titulo)}</strong><br><small>${escaparHTML(livro.autor)}${livro.paginas ? ` • ${livro.paginas} págs.` : ''}</small></p>
+      `;
+
       div.onclick = () => {
-        document.getElementById('livro-titulo').value = info.title || '';
-        document.getElementById('livro-autor').value = autor;
-        document.getElementById('livro-capa').value = capa;
-        if (paginas) document.getElementById('livro-paginas-totais').value = paginas;
-        container.innerHTML = '<small>✅ Dados do livro preenchidos!</small>';
+        document.getElementById('livro-titulo').value = livro.titulo;
+        document.getElementById('livro-autor').value = livro.autor;
+        document.getElementById('livro-capa').value = livro.capa;
+        if (livro.paginas) {
+          document.getElementById('livro-paginas-totais').value = livro.paginas;
+        }
+
+        const generosSugeridos = mapearCategoriasApiParaGeneros(livro.categorias);
+        if (generosSugeridos.length) {
+          definirGenerosSelecionados(generosSugeridos, true);
+        }
+
+        const campoBio = document.getElementById('autor-bio');
+        if (livro.descricao && !campoBio.value.trim()) {
+          const resumoLimpo = livro.descricao.replace(/\s+/g, ' ').trim();
+          campoBio.value = `Autor(a): ${livro.autor}\n• Contexto / Sinopse inicial: ${resumoLimpo}`;
+        }
+
+        container.innerHTML = '<small>✅ Dados preenchidos automaticamente! Revise e ajuste o que quiser antes de publicar.</small>';
       };
+
       container.appendChild(div);
     });
   } catch (err) {
-    console.error('Erro na busca Google Books:', err);
-    container.innerHTML = '<small>Erro ao consultar a API do Google Books.</small>';
+    console.error('Erro na busca de livros:', err);
+    container.innerHTML = '<small>Não foi possível buscar livros agora. Aguarde alguns segundos e tente novamente.</small>';
   }
 };
+
+document.getElementById('input-busca-livro').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('btn-buscar-api').click();
+  }
+});
 
 // 4. Salvar ou Atualizar Módulo + Compressão de Fotos
 document.getElementById('form-encontro').onsubmit = async (e) => {
