@@ -54,7 +54,7 @@ const GENEROS_DISPONIVEIS = [
 let todosEncontros = [];
 let todosPerfis = {};
 let todasAvaliacoes = [];
-let todosComentarios = [];
+let todasComentarios = [];
 let todasIndicacoes = [];
 let todosVotos = [];
 
@@ -353,7 +353,6 @@ function atualizarInterfaceSessao() {
     btnSair.classList.add('oculto');
   }
 
-  // Somente o Admin Master vê o painel de administração completo
   painelAdmin.classList.toggle('oculto', !ehAdminMaster);
 
   const btnNovaResenha = document.getElementById('btn-toggle-resenha-individual');
@@ -1404,8 +1403,11 @@ function renderizarTela() {
       : '';
 
     const infoMedia = calcularMediaLivro(item.id, item.nota);
+    const baseAvaliacoes = typeof todasAvaliacoes !== 'undefined' && Array.isArray(todasAvaliacoes)
+      ? todasAvaliacoes
+      : [];
     const minhaAvaliacao = usuarioLogado
-      ? todosAvaliacoes.find(a => a.encontro_id === item.id && a.usuario_id === usuarioLogado.id)
+      ? baseAvaliacoes.find(a => a.encontro_id === item.id && a.usuario_id === usuarioLogado.id)
       : null;
 
     const badgeIndividual = ehIndividual
