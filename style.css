@@ -3,18 +3,20 @@
   --cor-primaria-hover: #1a3150;
   --cor-fundo: #faf7f2;
   --cor-card: #ffffff;
-  --cor-superficie-suave: #f3efe8;
-  --cor-borda: #e5ddd0;
-  --texto: #1f242b;
-  --texto-suave: #5c6570;
+  --cor-superficie-suave: #f4f0e8;
+  --cor-borda: #e6dfd3;
+  --cor-borda-hover: #c8beac;
+  --texto: #1e242b;
+  --texto-suave: #5d6672;
   --verde: #2d6a4f;
   --ambar: #c26d1f;
   --perigo: #b42318;
-  --sombra-suave: 0 8px 24px rgba(31, 36, 43, 0.05);
-  --sombra-card: 0 2px 10px rgba(31, 36, 43, 0.04);
-  --raio-lg: 14px;
-  --raio-md: 10px;
-  --raio-sm: 7px;
+  --sombra-card: 0 2px 10px rgba(30, 36, 43, 0.04);
+  --sombra-hover: 0 12px 28px rgba(30, 36, 43, 0.08);
+  --raio-lg: 16px;
+  --raio-md: 12px;
+  --raio-sm: 8px;
+  --transicao: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * {
@@ -24,9 +26,9 @@
 
 body {
   margin: 0;
-  background: var(--cor-fundo);
+  background: radial-gradient(circle at top right, #f3ede2 0%, var(--cor-fundo) 55%);
   color: var(--texto);
-  line-height: 1.6;
+  line-height: 1.62;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -35,59 +37,89 @@ h1, h2, h3, .stat-numero {
   letter-spacing: -0.02em;
 }
 
-/* Cabeçalho Editorial */
+/* Cabeçalho Clean e Elegante */
 header {
-  background: linear-gradient(135deg, #1d3557 0%, #24426b 100%);
+  background: linear-gradient(125deg, #1b314e 0%, #24426b 60%, #2d5282 100%);
   color: #fffdf9;
-  padding: 1.5rem 2rem;
+  padding: 1.45rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 20px rgba(27, 49, 78, 0.14);
 }
 
 header h1 {
   margin: 0;
-  font-size: 1.6rem;
+  font-size: 1.58rem;
   font-weight: 700;
 }
 
 header small {
   display: block;
   margin-top: 0.2rem;
-  color: rgba(255, 253, 249, 0.82);
-  font-size: 0.9rem;
+  color: rgba(255, 253, 249, 0.84);
+  font-size: 0.88rem;
 }
 
 main {
   max-width: 940px;
   margin: 2rem auto 3.5rem;
   padding: 0 1.25rem;
+  animation: aparecerSuave 0.45s var(--transicao) both;
 }
 
-/* Placar de Performance */
+@keyframes aparecerSuave {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Placar de Performance com Hover Dinâmico */
 .placar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.1rem;
+  gap: 1.15rem;
   margin-bottom: 1.75rem;
 }
 
 .stat-card {
+  position: relative;
   background: var(--cor-card);
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio-lg);
-  padding: 1.35rem 1.1rem;
+  padding: 1.35rem 1.15rem;
   text-align: center;
   box-shadow: var(--sombra-card);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.28s var(--transicao), box-shadow 0.28s var(--transicao), border-color 0.28s var(--transicao);
+  overflow: hidden;
+}
+
+.stat-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--cor-primaria), var(--verde));
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.32s var(--transicao);
 }
 
 .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--sombra-suave);
+  transform: translateY(-4px);
+  box-shadow: var(--sombra-hover);
+  border-color: var(--cor-borda-hover);
+}
+
+.stat-card:hover::after {
+  transform: scaleX(1);
 }
 
 .stat-numero {
@@ -106,7 +138,7 @@ main {
   color: var(--texto-suave);
 }
 
-/* Caixas Principais */
+/* Cards Principais */
 .card, .destaque-box, .filtros-box {
   background: var(--cor-card);
   border: 1px solid var(--cor-borda);
@@ -114,11 +146,16 @@ main {
   padding: 1.65rem;
   margin-bottom: 1.6rem;
   box-shadow: var(--sombra-card);
+  transition: border-color 0.25s var(--transicao), box-shadow 0.25s var(--transicao);
+}
+
+.card:hover, .destaque-box:hover, .filtros-box:hover {
+  border-color: var(--cor-borda-hover);
+  box-shadow: var(--sombra-hover);
 }
 
 .card h2, .destaque-box h2, .filtros-box h3 {
   margin-top: 0;
-  color: var(--texto);
 }
 
 .destaque-box {
@@ -148,13 +185,18 @@ main {
   flex-wrap: wrap;
 }
 
-/* Guia de Discussão */
+/* Guia Retrátil */
 .guia-box summary {
   cursor: pointer;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.04rem;
   color: var(--cor-primaria);
   list-style: none;
+  transition: color 0.2s ease;
+}
+
+.guia-box summary:hover {
+  color: var(--cor-primaria-hover);
 }
 
 .guia-texto {
@@ -164,13 +206,14 @@ main {
   line-height: 1.72;
   white-space: pre-line;
   color: #2d3540;
+  animation: aparecerSuave 0.3s var(--transicao) both;
 }
 
-/* Campos de Formulário */
+/* Inputs */
 label {
   display: block;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--texto);
 }
 
@@ -183,14 +226,18 @@ input, select, textarea {
   font-size: 0.94rem;
   background: #fffdf9;
   color: var(--texto);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  transition: border-color 0.2s var(--transicao), box-shadow 0.2s var(--transicao), background-color 0.2s var(--transicao);
+}
+
+input:hover, select:hover, textarea:hover {
+  border-color: var(--cor-borda-hover);
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
   background: #ffffff;
   border-color: var(--cor-primaria);
-  box-shadow: 0 0 0 3px rgba(36, 66, 107, 0.12);
+  box-shadow: 0 0 0 3px rgba(36, 66, 107, 0.13);
 }
 
 hr {
@@ -215,7 +262,7 @@ hr {
   margin: 0.35rem 0 0.95rem 0;
 }
 
-/* Botões */
+/* Botões com Microinteração */
 button, .btn-agenda {
   padding: 0.68rem 1.15rem;
   border: 1px solid transparent;
@@ -228,11 +275,17 @@ button, .btn-agenda {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  transition: transform 0.15s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.2s var(--transicao), background-color 0.2s var(--transicao), box-shadow 0.2s var(--transicao), border-color 0.2s var(--transicao);
+}
+
+button:hover, .btn-agenda:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px rgba(30, 36, 43, 0.1);
 }
 
 button:active, .btn-agenda:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
 }
 
 .btn-primario {
@@ -251,7 +304,8 @@ button:active, .btn-agenda:active {
 }
 
 .btn-secundario:hover {
-  background: #eae3d7;
+  background: #ebe4d7;
+  border-color: var(--cor-borda-hover);
 }
 
 .btn-perigo {
@@ -279,7 +333,7 @@ button:active, .btn-agenda:active {
   border-radius: 999px;
   height: 11px;
   width: 100%;
-  margin: 0.6rem 0 0.85rem;
+  margin: 0.65rem 0 0.9rem;
   overflow: hidden;
 }
 
@@ -287,18 +341,23 @@ button:active, .btn-agenda:active {
   background: linear-gradient(90deg, var(--verde) 0%, #40916c 100%);
   height: 100%;
   border-radius: 999px;
-  transition: width 0.35s ease;
+  transition: width 0.55s var(--transicao);
 }
 
-/* Resultados da Busca de Livros */
+/* Carrossel / Faixa Deslizante da Busca de Livros */
 .grid-resultados {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding-bottom: 10px;
+  scroll-snap-type: x proximity;
+  padding: 4px 2px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cor-borda-hover) transparent;
 }
 
 .item-api {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
   min-width: 145px;
   border: 1px solid var(--cor-borda);
   padding: 10px;
@@ -306,19 +365,25 @@ button:active, .btn-agenda:active {
   text-align: center;
   cursor: pointer;
   background: var(--cor-superficie-suave);
-  transition: all 0.18s ease;
+  transition: transform 0.24s var(--transicao), border-color 0.24s var(--transicao), background-color 0.24s var(--transicao), box-shadow 0.24s var(--transicao);
 }
 
 .item-api:hover {
   border-color: var(--cor-primaria);
   background: #eef3f9;
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px rgba(36, 66, 107, 0.1);
 }
 
 .item-api img {
   height: 98px;
   object-fit: cover;
-  border-radius: 5px;
+  border-radius: 6px;
+  transition: transform 0.28s var(--transicao);
+}
+
+.item-api:hover img {
+  transform: scale(1.04);
 }
 
 /* Módulos de Livros e Encontros */
@@ -326,9 +391,16 @@ button:active, .btn-agenda:active {
   background: var(--cor-card);
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio-lg);
-  margin-bottom: 1.45rem;
+  margin-bottom: 1.5rem;
   overflow: hidden;
   box-shadow: var(--sombra-card);
+  transition: transform 0.28s var(--transicao), box-shadow 0.28s var(--transicao), border-color 0.28s var(--transicao);
+}
+
+.modulo-livro:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sombra-hover);
+  border-color: var(--cor-borda-hover);
 }
 
 .modulo-cabecalho {
@@ -349,11 +421,17 @@ button:active, .btn-agenda:active {
 }
 
 .modulo-cabecalho img {
-  width: 68px;
-  height: 100px;
+  width: 70px;
+  height: 102px;
   object-fit: cover;
-  border-radius: 6px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  border-radius: 7px;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.14);
+  transition: transform 0.3s var(--transicao), box-shadow 0.3s var(--transicao);
+}
+
+.modulo-livro:hover .modulo-cabecalho img {
+  transform: scale(1.04) rotate(-1deg);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 .tag {
@@ -366,6 +444,11 @@ button:active, .btn-agenda:active {
   border-radius: 999px;
   margin-right: 6px;
   margin-bottom: 5px;
+  transition: transform 0.2s var(--transicao);
+}
+
+.tag:hover {
+  transform: translateY(-1px);
 }
 
 .tag-status {
@@ -388,6 +471,12 @@ details.spoiler-box {
   border-radius: var(--raio-md);
   padding: 0.9rem 1.05rem;
   margin-top: 1rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+details.spoiler-box[open] {
+  background: #fdfbf7;
+  border-style: solid;
 }
 
 details.spoiler-box summary {
@@ -396,21 +485,41 @@ details.spoiler-box summary {
   color: var(--cor-primaria);
 }
 
-/* Galeria de Fotos */
+/* Carrossel Horizontal de Fotos do Encontro */
 .galeria-fotos {
   display: flex;
   gap: 12px;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 4px 2px 10px;
   margin-top: 1.1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cor-borda-hover) transparent;
 }
 
 .galeria-fotos img {
-  width: 148px;
-  height: 148px;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  width: 210px;
+  height: 155px;
   object-fit: cover;
   border-radius: var(--raio-md);
   border: 1px solid var(--cor-borda);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
+  transition: transform 0.3s var(--transicao), box-shadow 0.3s var(--transicao), border-color 0.3s var(--transicao);
+}
+
+.galeria-fotos img:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.13);
+  border-color: var(--cor-primaria);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media (max-width: 600px) {
@@ -425,5 +534,10 @@ details.spoiler-box summary {
 
   .card, .destaque-box, .filtros-box, .modulo-corpo, .modulo-cabecalho {
     padding: 1.15rem;
+  }
+
+  .galeria-fotos img {
+    width: 175px;
+    height: 135px;
   }
 }
