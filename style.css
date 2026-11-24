@@ -262,7 +262,14 @@ input:focus, select:focus, textarea:focus {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.input-busca-genero {
+  margin: 0 0 0.75rem 0 !important;
+  padding: 0.55rem 0.8rem !important;
+  font-size: 0.88rem !important;
+  background: #ffffff !important;
 }
 
 .btn-mini {
@@ -312,6 +319,63 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--cor-primaria);
   color: #ffffff;
   font-weight: 600;
+}
+
+/* Fotos Existentes na Edição */
+.fotos-existentes-box {
+  margin: 0.5rem 0 0.85rem;
+  padding: 0.85rem;
+  background: var(--cor-superficie-suave);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.fotos-existentes-titulo {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+  margin-bottom: 0.6rem;
+}
+
+.fotos-existentes-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.foto-existente-item {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+
+.foto-existente-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--raio-sm);
+  border: 1px solid var(--cor-borda);
+}
+
+.btn-remover-foto {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--perigo);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+
+.btn-remover-foto:hover {
+  background: #961c12;
+  transform: scale(1.08);
 }
 
 hr {

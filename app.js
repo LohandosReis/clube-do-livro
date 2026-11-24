@@ -51,6 +51,7 @@ const GENEROS_DISPONIVEIS = [
 
 let todosEncontros = [];
 let usuarioLogado = null;
+let fotosEmEdicao = [];
 
 const painelAdmin = document.getElementById('painel-admin');
 const secaoLogin = document.getElementById('secao-login');
@@ -99,7 +100,7 @@ function montarSeletoresDeGenero() {
     containerAdmin.innerHTML = GENEROS_DISPONIVEIS.map((genero, idx) => {
       const id = `genero-opt-${idx}`;
       return `
-        <label class="genero-chip" for="${id}">
+        <label class="genero-chip" for="${id}" data-genero-label="${escaparHTML(genero.toLowerCase())}">
           <input type="checkbox" class="checkbox-genero" id="${id}" value="${escaparHTML(genero)}">
           <span>${escaparHTML(genero)}</span>
         </label>
@@ -117,6 +118,18 @@ function montarSeletoresDeGenero() {
   }
 }
 
+function filtrarGenerosAdmin() {
+  const termo = (document.getElementById('busca-genero-admin')?.value || '').toLowerCase().trim();
+  const chips = document.querySelectorAll('#container-generos-admin .genero-chip');
+  chips.forEach(chip => {
+    const nomeGenero = chip.getAttribute('data-genero-label') || '';
+    const corresponde = !termo || nomeGenero.includes(termo);
+    chip.classList.toggle('oculto', !corresponde);
+  });
+}
+
+document.getElementById('busca-genero-admin').oninput = filtrarGenerosAdmin;
+
 function obterGenerosSelecionados() {
   return Array.from(document.querySelectorAll('.checkbox-genero:checked'))
     .map(el => el.value.trim())
@@ -132,6 +145,43 @@ function definirGenerosSelecionados(generoValor) {
 
 document.getElementById('btn-limpar-generos').onclick = () => {
   definirGenerosSelecionados([]);
+};
+
+// Gerenciamento de fotos já enviadas durante a edição
+function renderizarFotosEmEdicao() {
+  const box = document.getElementById('container-fotos-existentes');
+  const hiddenInput = document.getElementById('edit-fotos-existentes');
+  const editId = document.getElementById('edit-id').value;
+
+  if (hiddenInput) {
+    hiddenInput.value = JSON.stringify(fotosEmEdicao);
+  }
+
+  if (!editId || !fotosEmEdicao.length) {
+    if (box) {
+      box.innerHTML = '';
+      box.classList.add('oculto');
+    }
+    return;
+  }
+
+  box.classList.remove('oculto');
+  box.innerHTML = `
+    <div class="fotos-existentes-titulo">Fotos já enviadas neste encontro (clique em × para remover):</div>
+    <div class="fotos-existentes-grid">
+      ${fotosEmEdicao.map((url, index) => `
+        <div class="foto-existente-item">
+          <img src="${escaparHTML(url)}" alt="Foto ${index + 1}" loading="lazy">
+          <button type="button" class="btn-remover-foto" onclick="removerFotoExistente(${index})" title="Remover foto">×</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+window.removerFotoExistente = (index) => {
+  fotosEmEdicao.splice(index, 1);
+  renderizarFotosEmEdicao();
 };
 
 // 1. Autenticação Admin e Controle de Abas
@@ -288,7 +338,7 @@ document.getElementById('form-encontro').onsubmit = async (e) => {
   btnSalvar.textContent = 'Processando e salvando...';
 
   const editId = document.getElementById('edit-id').value;
-  let urlsFotos = editId ? JSON.parse(document.getElementById('edit-fotos-existentes').value || '[]') : [];
+  let urlsFotos = editId ? [...fotosEmEdicao] : [];
   const arquivos = document.getElementById('encontro-fotos').files;
 
   for (const file of arquivos) {
@@ -356,7 +406,9 @@ window.prepararEdicao = (id) => {
   document.getElementById('btn-salvar-modulo').textContent = 'Salvar Alterações';
 
   document.getElementById('edit-id').value = item.id;
-  document.getElementById('edit-fotos-existentes').value = JSON.stringify(item.fotos || []);
+  fotosEmEdicao = Array.isArray(item.fotos) ? [...item.fotos] : [];
+  renderizarFotosEmEdicao();
+
   document.getElementById('livro-titulo').value = item.titulo || '';
   document.getElementById('livro-autor').value = item.autor || '';
   document.getElementById('livro-capa').value = item.capa || '';
@@ -384,6 +436,13 @@ window.excluirModulo = async (id, titulo) => {
 function resetarFormulario() {
   document.getElementById('form-encontro').reset();
   definirGenerosSelecionados([]);
+  const buscaGenero = document.getElementById('busca-genero-admin');
+  if (buscaGenero) {
+    buscaGenero.value = '';
+    filtrarGenerosAdmin();
+  }
+  fotosEmEdicao = [];
+  renderizarFotosEmEdicao();
   document.getElementById('edit-id').value = '';
   document.getElementById('edit-fotos-existentes').value = '';
   document.getElementById('titulo-form-admin').textContent = '⚙️ Novo Módulo / Leitura';
