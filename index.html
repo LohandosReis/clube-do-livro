@@ -194,6 +194,14 @@
       <div id="conteudo-atual">Carregando...</div>
     </section>
 
+    <!-- MÉTRICAS ANÔNIMAS DO GRUPO -->
+    <section id="metricas-grupo" class="card metricas-grupo-box">
+      <h2>📚 Ritmo do Clube</h2>
+      <p id="metricas-grupo-livro" class="texto-suave">Carregando métricas...</p>
+      <div id="painel-metricas-grupo"></div>
+      <div id="cartoes-publicos-grupo"></div>
+    </section>
+
     <!-- ACOMPANHAMENTO PESSOAL DE LEITURA -->
     <section id="acompanhamento-leitura" class="card acompanhamento-box oculto">
       <div class="acompanhamento-cabecalho">
@@ -219,6 +227,35 @@
 
       <div id="painel-desempenho-leitura" class="painel-desempenho">
         Faça login para acompanhar suas páginas por dia, semana e mês.
+      </div>
+
+      <div class="compartilhamento-progresso">
+        <h3>Compartilhar meu progresso</h3>
+        <p>Seu progresso é privado por padrão. Gere um cartão para compartilhar fora do site ou publique-o aqui somente quando você quiser.</p>
+        <label class="opcao-compartilhamento">
+          <input type="checkbox" id="progresso-incluir-nome">
+          Incluir meu nome/apelido no cartão e, se publicar, no site
+        </label>
+        <label class="opcao-compartilhamento">
+          <input type="checkbox" id="progresso-incluir-foto">
+          Incluir minha foto de perfil no cartão e, se publicar, no site
+        </label>
+        <div class="acoes-compartilhamento">
+          <button type="button" id="btn-gerar-cartao-progresso" class="btn-secundario">Gerar cartão</button>
+          <button type="button" id="btn-compartilhar-cartao-progresso" class="btn-primario">Compartilhar</button>
+          <button type="button" id="btn-baixar-cartao-progresso" class="btn-secundario">Baixar imagem</button>
+        </div>
+        <small>Gere uma imagem atualizada antes de baixar ou compartilhar. O nome fica opcional e desmarcado por padrão.</small>
+        <img id="cartao-progresso-preview" class="cartao-progresso-preview oculto" alt="Prévia do cartão de progresso de leitura">
+
+        <div class="publicacao-progresso">
+          <label class="opcao-compartilhamento">
+            <input type="checkbox" id="progresso-publicado-site">
+            Mostrar meu cartão de progresso na seção pública do site
+          </label>
+          <button type="button" id="btn-salvar-publicacao-progresso" class="btn-secundario">Salvar opção de publicação</button>
+          <small>A publicação pode ser desativada a qualquer momento. Sem nome marcado, será exibido um animal aleatório.</small>
+        </div>
       </div>
     </section>
 

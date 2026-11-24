@@ -182,6 +182,8 @@ function renderizarAcompanhamentoLeitura() {
   const tituloLivro = document.getElementById('acompanhamento-livro');
   const painel = document.getElementById('painel-desempenho-leitura');
   const campoData = document.getElementById('progresso-data');
+  const formulario = document.getElementById('form-progresso-leitura');
+  const compartilhamento = document.querySelector('.compartilhamento-progresso');
   if (!secao || !painel) return;
 
   const atual = estadoApp.encontros.find(
@@ -198,11 +200,13 @@ function renderizarAcompanhamentoLeitura() {
   if (!atual) {
     tituloLivro.textContent = 'Não há uma leitura atual definida pelo clube.';
     painel.innerHTML = '<p>Nenhum livro em andamento está disponível para acompanhamento.</p>';
-    document.getElementById('form-progresso-leitura').classList.add('oculto');
+    formulario.classList.add('oculto');
+    compartilhamento.classList.add('oculto');
     return;
   }
 
-  document.getElementById('form-progresso-leitura').classList.remove('oculto');
+  formulario.classList.remove('oculto');
+  compartilhamento.classList.remove('oculto');
   tituloLivro.textContent = `Livro atual: ${atual.titulo} — ${atual.autor}`;
 
   if (campoData) {
@@ -212,6 +216,7 @@ function renderizarAcompanhamentoLeitura() {
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   const hojeISO = formatoDataLocal(hoje);
+  if (campoData) campoData.max = hojeISO;
 
   const inicioSemana = new Date(hoje);
   const diaSemana = inicioSemana.getDay();
@@ -245,6 +250,25 @@ function renderizarAcompanhamentoLeitura() {
   const mediaDia = limites.length
     ? Math.round(limites.reduce((total, paginas) => total + paginas, 0) / limites.length)
     : 0;
+  const totalPaginasLidas = registros.reduce(
+    (total, item) => total + (Number(item.paginas_lidas) || 0),
+    0
+  );
+  const paginasRestantes = atual.paginas_totais
+    ? Math.max(0, atual.paginas_totais - totalPaginasLidas)
+    : null;
+  const diasAteEncontro = atual.data_encontro
+    ? Math.max(0, Math.ceil(
+        (new Date(`${atual.data_encontro}T00:00:00`) - hoje) / 86400000
+      ))
+    : 0;
+  const ritmoNecessario = paginasRestantes === null
+    ? null
+    : paginasRestantes === 0
+      ? 0
+      : diasAteEncontro > 0
+        ? Math.ceil(paginasRestantes / diasAteEncontro)
+        : null;
 
   let sequencia = 0;
   for (let i = 0; i < 365; i++) {
@@ -256,6 +280,58 @@ function renderizarAcompanhamentoLeitura() {
       break;
     }
   }
+
+  const diasLidos = [...new Set(
+    registros
+      .filter(item => Number(item.paginas_lidas) > 0)
+      .map(item => item.data_leitura)
+  )].sort();
+  let melhorSequencia = 0;
+  let sequenciaAtual = 0;
+  let diaAnterior = null;
+  diasLidos.forEach(iso => {
+    const data = new Date(`${iso}T00:00:00`);
+    const consecutivo = diaAnterior &&
+      (data - diaAnterior) / 86400000 === 1;
+    sequenciaAtual = consecutivo ? sequenciaAtual + 1 : 1;
+    melhorSequencia = Math.max(melhorSequencia, sequenciaAtual);
+    diaAnterior = data;
+  });
+
+  const maxPaginaSemana = Math.max(1, ...Array.from({ length: 8 }, (_, indice) => {
+    const inicio = new Date(inicioSemana);
+    inicio.setDate(inicioSemana.getDate() - (7 - indice) * 7);
+    const fim = new Date(inicio);
+    fim.setDate(inicio.getDate() + 6);
+    return registros
+      .filter(item => {
+        const data = new Date(`${item.data_leitura}T00:00:00`);
+        return data >= inicio && data <= fim;
+      })
+      .reduce((total, item) => total + (Number(item.paginas_lidas) || 0), 0);
+  }));
+  const semanas = Array.from({ length: 8 }, (_, indice) => {
+    const inicio = new Date(inicioSemana);
+    inicio.setDate(inicioSemana.getDate() - (7 - indice) * 7);
+    const fim = new Date(inicio);
+    fim.setDate(inicio.getDate() + 6);
+    const paginas = registros
+      .filter(item => {
+        const data = new Date(`${item.data_leitura}T00:00:00`);
+        return data >= inicio && data <= fim;
+      })
+      .reduce((total, item) => total + (Number(item.paginas_lidas) || 0), 0);
+    const rotulo = inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    return `
+      <div class="barra-semana-linha">
+        <span>Sem. ${rotulo}</span>
+        <div class="barra-semana-fundo">
+          <div class="barra-semana-valor" style="width:${Math.round(paginas / maxPaginaSemana * 100)}%"></div>
+        </div>
+        <strong>${paginas}</strong>
+      </div>
+    `;
+  });
 
   const maiorLeitura = Math.max(0, ...limites);
   const nivel = paginas => {
@@ -337,6 +413,25 @@ function renderizarAcompanhamentoLeitura() {
         <strong>${sequencia}</strong>
         <span>Sequência atual</span>
       </div>
+      <div class="metrica-leitura">
+        <strong>${melhorSequencia}</strong>
+        <span>Recorde de dias</span>
+      </div>
+      ${paginasRestantes !== null ? `
+        <div class="metrica-leitura">
+          <strong>${paginasRestantes}</strong>
+          <span>Páginas restantes</span>
+        </div>
+        <div class="metrica-leitura">
+          <strong>${ritmoNecessario === null ? '—' : ritmoNecessario}</strong>
+          <span>Páginas/dia até o encontro</span>
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="historico-semanal">
+      <strong>Meu ritmo nas últimas 8 semanas</strong>
+      ${semanas.join('')}
     </div>
 
     <div class="heatmap-leitura">
@@ -358,6 +453,99 @@ function renderizarAcompanhamentoLeitura() {
     <div class="lista-registros-leitura">
       <h3>Meus registros diários</h3>
       <div class="registros-leitura-itens">${registrosHTML}</div>
+    </div>
+  `;
+
+  const incluirNome = document.getElementById('progresso-incluir-nome');
+  const incluirFoto = document.getElementById('progresso-incluir-foto');
+  const publicarSite = document.getElementById('progresso-publicado-site');
+  if (incluirNome) incluirNome.checked = Boolean(estadoApp.progressoPublicado?.mostrar_nome);
+  if (incluirFoto) incluirFoto.checked = Boolean(estadoApp.progressoPublicado?.mostrar_foto);
+  if (publicarSite) publicarSite.checked = Boolean(estadoApp.progressoPublicado);
+}
+
+function renderizarMetricasGrupo() {
+  const painel = document.getElementById('painel-metricas-grupo');
+  const cartoesContainer = document.getElementById('cartoes-publicos-grupo');
+  if (!painel || !cartoesContainer) return;
+
+  const temLeituraAtual = estadoApp.encontros.some(
+    item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
+  );
+  if (!temLeituraAtual) {
+    painel.innerHTML = '<p>As métricas coletivas aparecerão quando o clube iniciar uma leitura.</p>';
+    cartoesContainer.innerHTML = '';
+    return;
+  }
+
+  const metricas = estadoApp.metricasGrupo;
+  if (!metricas) {
+    painel.innerHTML = '<p>Não foi possível carregar as métricas coletivas.</p>';
+  } else {
+    const animais = ['Coruja', 'Raposa', 'Lontra', 'Lobo', 'Tartaruga', 'Beija-flor', 'Gato-do-mato'];
+    const atividades = Array.isArray(metricas.atividade_anonima)
+      ? metricas.atividade_anonima
+      : [];
+    const feed = atividades.length
+      ? atividades.map(item => {
+          const animal = animais[Math.floor(Math.random() * animais.length)];
+          const data = new Date(`${item.data}T00:00:00`).toLocaleDateString('pt-BR');
+          return `<div class="atividade-anonima-item">
+            <span aria-hidden="true">🐾</span>
+            <span><strong>${animal} do Clube</strong> — ${Number(item.paginas) || 0} páginas somadas pelo grupo em ${escaparHTML(data)}</span>
+          </div>`;
+        }).join('')
+      : '<small>Ainda não há leituras registradas pelo grupo.</small>';
+
+    painel.innerHTML = `
+      <div class="metricas-leitura metricas-grupo">
+        <div class="metrica-leitura"><strong>${Number(metricas.total_paginas) || 0}</strong><span>Páginas no total</span></div>
+        <div class="metrica-leitura"><strong>${Number(metricas.paginas_hoje) || 0}</strong><span>Páginas hoje</span></div>
+        <div class="metrica-leitura"><strong>${Number(metricas.paginas_semana) || 0}</strong><span>Esta semana</span></div>
+        <div class="metrica-leitura"><strong>${Number(metricas.paginas_mes) || 0}</strong><span>Este mês</span></div>
+        <div class="metrica-leitura"><strong>${Number(metricas.leitores_ativos) || 0}</strong><span>Membros ativos nos últimos 7 dias</span></div>
+      </div>
+      <div class="atividade-anonima">
+        <h3>Atividade anônima recente</h3>
+        <p>Os nomes de animais são aleatórios e não identificam membros. A atividade diária só aparece quando há pelo menos três leitores naquele dia.</p>
+        <div class="atividade-anonima-lista">${feed}</div>
+      </div>
+    `;
+  }
+
+  const cartoes = estadoApp.cartoesProgressoPublicos || [];
+  if (!cartoes.length) {
+    cartoesContainer.innerHTML = '';
+    return;
+  }
+
+  const animais = ['Coruja', 'Raposa', 'Lontra', 'Lobo', 'Tartaruga', 'Beija-flor', 'Gato-do-mato'];
+  cartoesContainer.innerHTML = `
+    <div class="cartoes-publicos-titulo">
+      <h3>Leitores que decidiram compartilhar</h3>
+      <p>Estes cartões aparecem porque seus autores ativaram a publicação. Cada pessoa pode removê-los quando quiser.</p>
+    </div>
+    <div class="cartoes-publicos-lista">
+      ${cartoes.map(cartao => {
+        const paginas = Number(cartao.paginas_lidas) || 0;
+        const total = Number(cartao.paginas_totais) || 0;
+        const percentual = total ? Math.min(100, Math.round(paginas / total * 100)) : null;
+        const nome = cartao.mostrar_nome && cartao.nome
+          ? cartao.nome
+          : `${animais[Math.floor(Math.random() * animais.length)]} do Clube`;
+        return `
+          <article class="cartao-publico-leitura">
+            ${cartao.mostrar_foto && cartao.foto_url ? `<img class="cartao-publico-avatar" src="${escaparHTML(cartao.foto_url)}" alt="Foto de ${escaparHTML(nome)}" loading="lazy">` : ''}
+            ${cartao.capa ? `<img src="${escaparHTML(cartao.capa)}" alt="Capa de ${escaparHTML(cartao.titulo)}" loading="lazy">` : ''}
+            <div class="cartao-publico-conteudo">
+              <strong>${escaparHTML(nome)}</strong>
+              <span>Lendo “${escaparHTML(cartao.titulo)}”${cartao.autor ? ` — ${escaparHTML(cartao.autor)}` : ''}</span>
+              <span>${paginas} ${paginas === 1 ? 'página registrada' : 'páginas registradas'}${total ? ` de ${total} (${percentual}%)` : ''}</span>
+              ${percentual !== null ? `<div class="progresso-container"><div class="progresso-barra" style="width:${percentual}%"></div></div>` : ''}
+            </div>
+          </article>
+        `;
+      }).join('')}
     </div>
   `;
 }

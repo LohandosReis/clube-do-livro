@@ -842,6 +842,182 @@ details.spoiler-box summary {
 }
 
 /* Acompanhamento pessoal de leitura */
+.metricas-grupo-box {
+  border-left: 5px solid var(--verde);
+}
+
+.texto-suave {
+  color: var(--texto-suave);
+}
+
+.metricas-grupo {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.atividade-anonima,
+.historico-semanal,
+.compartilhamento-progresso,
+.publicacao-progresso {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fcfbf8;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.atividade-anonima h3,
+.cartoes-publicos-titulo h3,
+.historico-semanal > strong,
+.compartilhamento-progresso h3 {
+  display: block;
+  margin: 0 0 0.55rem;
+  font-size: 1.05rem;
+}
+
+.atividade-anonima p,
+.cartoes-publicos-titulo p,
+.compartilhamento-progresso p {
+  margin: 0 0 0.75rem;
+  color: var(--texto-suave);
+  font-size: 0.86rem;
+}
+
+.atividade-anonima-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.atividade-anonima-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  background: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-sm);
+  font-size: 0.86rem;
+}
+
+.cartoes-publicos-titulo {
+  margin-top: 1.15rem;
+}
+
+.cartoes-publicos-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.7rem;
+}
+
+.cartao-publico-leitura {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.cartao-publico-leitura > img {
+  width: 58px;
+  height: 82px;
+  flex: 0 0 58px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.cartao-publico-leitura > img.cartao-publico-avatar {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+  border-radius: 50%;
+}
+
+.cartao-publico-conteudo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.historico-semanal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.barra-semana-linha {
+  display: grid;
+  grid-template-columns: 58px minmax(40px, 1fr) 38px;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+  color: var(--texto-suave);
+}
+
+.barra-semana-fundo {
+  height: 10px;
+  overflow: hidden;
+  background: #e7ebef;
+  border-radius: 999px;
+}
+
+.barra-semana-valor {
+  height: 100%;
+  background: linear-gradient(90deg, #7bc96f, #196127);
+  border-radius: inherit;
+}
+
+.compartilhamento-progresso {
+  background: var(--cor-superficie-suave);
+}
+
+.opcao-compartilhamento {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+  font-size: 0.86rem;
+}
+
+.opcao-compartilhamento input {
+  width: auto;
+  margin: 0.2rem 0 0;
+  accent-color: var(--cor-primaria);
+}
+
+.acoes-compartilhamento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+
+.cartao-progresso-preview {
+  display: block;
+  width: min(100%, 270px);
+  height: auto;
+  margin: 1rem auto 0;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+  box-shadow: var(--sombra-card);
+}
+
+.publicacao-progresso {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.publicacao-progresso small {
+  color: var(--texto-suave);
+}
+
 .acompanhamento-box {
   border-left: 5px solid #3a7bd5;
 }
@@ -1142,6 +1318,10 @@ details.spoiler-box summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .metricas-grupo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .heatmap-titulo {
     align-items: flex-start;
   }
@@ -1152,6 +1332,11 @@ details.spoiler-box summary {
 
   .registro-leitura-item {
     align-items: flex-start;
+  }
+
+  .acoes-compartilhamento > button,
+  .publicacao-progresso > button {
+    width: 100%;
   }
 
   .comunidade-cabecalho,

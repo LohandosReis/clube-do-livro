@@ -177,6 +177,11 @@ async function sairDaConta() {
   estadoApp.usuario = null;
   estadoApp.perfilUsuario = null;
   estadoApp.progressoLeitura = [];
+  estadoApp.progressoPublicado = null;
+  limparCartaoProgresso();
+  document.getElementById('progresso-incluir-nome').checked = false;
+  document.getElementById('progresso-incluir-foto').checked = false;
+  document.getElementById('progresso-publicado-site').checked = false;
   atualizarInterfaceSessao();
 }
 

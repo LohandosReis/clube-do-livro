@@ -108,6 +108,18 @@ create table if not exists public.progresso_leitura (
     check (paginas_lidas >= 0)
 );
 
+create table if not exists public.progresso_leitura_compartilhado (
+  usuario_id uuid not null references auth.users(id) on delete cascade,
+  encontro_id bigint not null references public.encontros(id) on delete cascade,
+  mostrar_nome boolean not null default false,
+  mostrar_foto boolean not null default false,
+  publicado_em timestamptz not null default now(),
+  primary key (usuario_id, encontro_id)
+);
+
+alter table public.progresso_leitura_compartilhado
+  add column if not exists mostrar_foto boolean not null default false;
+
 alter table public.encontros add column if not exists paginas_totais integer not null default 0;
 alter table public.encontros add column if not exists pagina_meta integer not null default 0;
 alter table public.encontros add column if not exists nota numeric(3,1);
@@ -124,6 +136,7 @@ alter table public.comentarios_livro enable row level security;
 alter table public.indicacoes_livro enable row level security;
 alter table public.votos_indicacao enable row level security;
 alter table public.progresso_leitura enable row level security;
+alter table public.progresso_leitura_compartilhado enable row level security;
 
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'encontro_paginas_validas') then
@@ -254,17 +267,141 @@ create policy "votos_proprio" on public.votos_indicacao
 
 drop policy if exists "progresso_leitura_proprio" on public.progresso_leitura;
 create policy "progresso_leitura_proprio" on public.progresso_leitura
-  for all using (
-    usuario_id = auth.uid()
-    or public.clube_e_admin()
-  )
-  with check (
-    usuario_id = auth.uid()
-  );
+  for all using (usuario_id = auth.uid())
+  with check (usuario_id = auth.uid());
 
 grant select, insert, update, delete
   on table public.progresso_leitura
   to authenticated;
+
+drop policy if exists "progresso_compartilhado_proprio" on public.progresso_leitura_compartilhado;
+create policy "progresso_compartilhado_proprio" on public.progresso_leitura_compartilhado
+  for all using (usuario_id = auth.uid())
+  with check (usuario_id = auth.uid());
+
+grant select, insert, update, delete
+  on table public.progresso_leitura_compartilhado
+  to authenticated;
+
+create or replace function public.clube_metricas_grupo(p_encontro_id bigint)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  resultado jsonb;
+begin
+  if not exists (
+    select 1
+    from public.encontros e
+    where e.id = p_encontro_id
+      and e.status = 'atual'
+      and coalesce(e.tipo_postagem, 'clube') = 'clube'
+  ) then
+    return jsonb_build_object(
+      'total_paginas', 0,
+      'paginas_hoje', 0,
+      'paginas_semana', 0,
+      'paginas_mes', 0,
+      'leitores_ativos', 0,
+      'atividade_anonima', '[]'::jsonb
+    );
+  end if;
+
+  select jsonb_build_object(
+    'total_paginas', coalesce(sum(p.paginas_lidas), 0),
+    'paginas_hoje', coalesce(sum(p.paginas_lidas)
+      filter (where p.data_leitura = current_date), 0),
+    'paginas_semana', coalesce(sum(p.paginas_lidas)
+      filter (where p.data_leitura >= date_trunc('week', current_date)::date), 0),
+    'paginas_mes', coalesce(sum(p.paginas_lidas)
+      filter (where p.data_leitura >= date_trunc('month', current_date)::date), 0),
+    'leitores_ativos', count(distinct p.usuario_id)
+      filter (where p.data_leitura >= current_date - 6 and p.paginas_lidas > 0),
+    'atividade_anonima', coalesce((
+      select jsonb_agg(
+        jsonb_build_object('data', atividade.dia, 'paginas', atividade.paginas)
+        order by atividade.dia desc
+      )
+      from (
+        select p2.data_leitura as dia, sum(p2.paginas_lidas) as paginas
+        from public.progresso_leitura p2
+        where p2.encontro_id = p_encontro_id
+          and p2.data_leitura between current_date - 13 and current_date
+          and p2.paginas_lidas > 0
+        group by p2.data_leitura
+        having count(distinct p2.usuario_id) >= 3
+        order by p2.data_leitura desc
+        limit 14
+      ) atividade
+    ), '[]'::jsonb)
+  )
+  into resultado
+  from public.progresso_leitura p
+  where p.encontro_id = p_encontro_id
+    and p.data_leitura <= current_date;
+
+  return resultado;
+end;
+$$;
+
+create or replace function public.clube_cartoes_progresso_publicos(p_encontro_id bigint)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'mostrar_nome', compartilhado.mostrar_nome,
+        'mostrar_foto', compartilhado.mostrar_foto,
+        'nome', case
+          when compartilhado.mostrar_nome then coalesce(perfil.nome, 'Leitor(a)')
+          else null
+        end,
+        'foto_url', case
+          when compartilhado.mostrar_foto then coalesce(perfil.foto_url, '')
+          else ''
+        end,
+        'paginas_lidas', progresso.total_paginas,
+        'paginas_totais', encontro.paginas_totais,
+        'titulo', encontro.titulo,
+        'autor', encontro.autor,
+        'capa', encontro.capa
+      )
+      order by compartilhado.publicado_em desc
+    ),
+    '[]'::jsonb
+  )
+  from public.encontros encontro
+  join public.progresso_leitura_compartilhado compartilhado
+    on compartilhado.encontro_id = encontro.id
+  left join public.perfis_clube perfil
+    on perfil.id = compartilhado.usuario_id
+  join lateral (
+    select coalesce(sum(p.paginas_lidas), 0) as total_paginas
+    from public.progresso_leitura p
+    where p.usuario_id = compartilhado.usuario_id
+      and p.encontro_id = compartilhado.encontro_id
+      and p.data_leitura <= current_date
+  ) progresso on true
+  where encontro.id = p_encontro_id
+    and encontro.status = 'atual'
+    and coalesce(encontro.tipo_postagem, 'clube') = 'clube'
+    and progresso.total_paginas > 0;
+$$;
+
+revoke all on function public.clube_metricas_grupo(bigint) from public;
+revoke all on function public.clube_metricas_grupo(bigint) from anon;
+grant execute on function public.clube_metricas_grupo(bigint) to anon, authenticated;
+
+revoke all on function public.clube_cartoes_progresso_publicos(bigint) from public;
+revoke all on function public.clube_cartoes_progresso_publicos(bigint) from anon;
+grant execute on function public.clube_cartoes_progresso_publicos(bigint) to anon, authenticated;
 
 insert into storage.buckets (id, name, public)
 values ('fotos-clube', 'fotos-clube', true)

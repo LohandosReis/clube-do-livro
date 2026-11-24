@@ -112,7 +112,19 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Cada membro pode excluir seus próprios registros diários pela lista de registros.
 - A interface mostra os totais de hoje, da semana atual, do mês atual e do período registrado.
 - A tela calcula média por dia ativo e sequência de dias consecutivos.
+- Mostra o recorde pessoal de dias consecutivos, páginas restantes e ritmo diário necessário até o próximo encontro.
+- Inclui gráfico semanal e mapa de atividade das últimas 12 semanas.
 - Um mapa visual de 84 dias usa blocos coloridos para representar o desempenho diário.
+- O cartão individual pode ser gerado, baixado ou compartilhado; incluir o nome é opcional.
+- A foto do perfil no cartão também pode ser incluída ou omitida.
+- A publicação do cartão no site é opt-in e pode ser retirada pela própria pessoa.
+
+### Métricas do grupo
+
+- Mostra totais do livro atual, hoje, semana e mês.
+- Conta membros ativos nos últimos sete dias.
+- Exibe atividade diária somente quando há ao menos três leitores naquele dia; os nomes de animais são aleatórios e não identificam membros.
+- Exibe cartões públicos somente de membros que ativaram explicitamente a publicação.
 - Alterar a quantidade registrada em uma data substitui o valor daquela data.
 
 ## Arquitetura
@@ -405,7 +417,21 @@ Chave primária composta: `(indicacao_id, usuario_id)`.
 
 Chave primária composta: `(usuario_id, encontro_id, data_leitura)`.
 
-Os registros são privados entre usuários pelas políticas RLS. O administrador possui acesso de leitura adicional pelo identificador administrativo.
+Os registros são privados entre usuários e também não são acessíveis ao Admin Master diretamente. Uma função SQL privilegiada retorna apenas estatísticas agregadas para o painel do grupo.
+
+### `progresso_leitura_compartilhado`
+
+Armazena apenas a decisão explícita de publicar um cartão e se o nome pode aparecer:
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `usuario_id` | `uuid` | Dono da preferência de publicação. |
+| `encontro_id` | `bigint` | Livro associado ao cartão. |
+| `mostrar_nome` | `boolean` | Indica se o nome do perfil foi autorizado para exibição. |
+| `mostrar_foto` | `boolean` | Indica se a foto do perfil foi autorizada para exibição. |
+| `publicado_em` | `timestamptz` | Momento em que a publicação foi ativada. |
+
+Chave primária composta: `(usuario_id, encontro_id)`. A tabela não permite leitura pública direta; a função `clube_cartoes_progresso_publicos()` retorna apenas dados dos cartões publicados, sem IDs de conta. A pessoa pode revogar a publicação pela própria interface.
 
 ## Segurança e permissões
 
@@ -427,6 +453,14 @@ Todas as tabelas de conteúdo e perfis permitem leitura pública.
 - um membro habilitado pode criar postagens do tipo `individual`;
 - o membro só pode editar ou excluir suas próprias resenhas individuais;
 - publicações do tipo `clube` não podem ser criadas por membros comuns.
+
+### Progresso de leitura
+
+- cada usuário pode ler, editar e apagar apenas seus próprios registros diários;
+- o Admin Master não tem leitura direta desses registros;
+- `clube_metricas_grupo()` retorna somente totais coletivos, sem IDs ou linhas individuais;
+- `clube_cartoes_progresso_publicos()` retorna somente cartões publicados explicitamente;
+- o cartão só é mostrado publicamente após o usuário habilitar a publicação.
 
 ### Avaliações
 

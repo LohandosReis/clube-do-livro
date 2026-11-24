@@ -240,6 +240,7 @@ async function carregarEncontros() {
   await carregarPerfis();
   await carregarComunidade();
   await carregarProgressoLeitura();
+  await carregarMetricasGrupo();
   atualizarPlacar();
   renderizarTela();
 }
@@ -338,6 +339,19 @@ function registrarEventos() {
     } finally {
       botao.disabled = false;
       botao.textContent = 'Registrar leitura';
+    }
+  };
+
+  document.getElementById('btn-gerar-cartao-progresso').onclick = gerarCartaoProgresso;
+  document.getElementById('btn-compartilhar-cartao-progresso').onclick = compartilharCartaoProgresso;
+  document.getElementById('btn-baixar-cartao-progresso').onclick = baixarCartaoProgresso;
+  document.getElementById('btn-salvar-publicacao-progresso').onclick = async (event) => {
+    const botao = event.currentTarget;
+    botao.disabled = true;
+    try {
+      await salvarPreferenciaCompartilhamento();
+    } finally {
+      botao.disabled = false;
     }
   };
 
