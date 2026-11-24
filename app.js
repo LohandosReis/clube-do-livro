@@ -1,3 +1,54 @@
+const GENEROS_DISPONIVEIS = [
+  'Ficção',
+  'Não Ficção',
+  'Literatura Brasileira',
+  'Literatura Estrangeira',
+  'Literatura Clássica',
+  'Romance',
+  'Romance Histórico',
+  'Romance Contemporâneo',
+  'Romance Policial / Investigação',
+  'Suspense',
+  'Thriller',
+  'Terror / Horror',
+  'Ficção Científica',
+  'Fantasia',
+  'Realismo Mágico',
+  'Distopia',
+  'Utopia',
+  'Aventura',
+  'Ação',
+  'Mistério',
+  'Drama',
+  'Comédia / Sátira',
+  'Poesia',
+  'Contos',
+  'Crônicas',
+  'Ensaio',
+  'Filosofia',
+  'Política',
+  'Sociologia',
+  'História',
+  'Biografia / Memórias',
+  'Autobiografia',
+  'Psicologia',
+  'Ciência / Divulgação Científica',
+  'Economia / Finanças',
+  'Direito / Cidadania',
+  'Educação / Pedagogia',
+  'Arte / Arquitetura / Música',
+  'Cinema / Cultura Pop',
+  'Religião / Espiritualidade / Mitologia',
+  'Ecologia / Natureza',
+  'Gastronomia / Viagens',
+  'Desenvolvimento Pessoal',
+  'Infantil',
+  'Infantojuvenil (YA)',
+  'Graphic Novel / HQ / Mangá',
+  'Teatro / Roteiro',
+  'Outro'
+];
+
 let todosEncontros = [];
 let usuarioLogado = null;
 
@@ -28,6 +79,60 @@ function formatarDataBR(dataISO) {
   if (partes.length !== 3) return dataISO;
   return `${partes[2]}/${partes[1]}/${partes[0]}`;
 }
+
+function parseGeneros(generoValor) {
+  if (!generoValor) return [];
+  if (Array.isArray(generoValor)) {
+    return generoValor.map(g => String(g).trim()).filter(Boolean);
+  }
+  return String(generoValor)
+    .split(',')
+    .map(g => g.trim())
+    .filter(Boolean);
+}
+
+function montarSeletoresDeGenero() {
+  const containerAdmin = document.getElementById('container-generos-admin');
+  const selectFiltro = document.getElementById('filtro-genero');
+
+  if (containerAdmin) {
+    containerAdmin.innerHTML = GENEROS_DISPONIVEIS.map((genero, idx) => {
+      const id = `genero-opt-${idx}`;
+      return `
+        <label class="genero-chip" for="${id}">
+          <input type="checkbox" class="checkbox-genero" id="${id}" value="${escaparHTML(genero)}">
+          <span>${escaparHTML(genero)}</span>
+        </label>
+      `;
+    }).join('');
+  }
+
+  if (selectFiltro) {
+    const valorAtual = selectFiltro.value || 'todos';
+    const opcoesHTML = GENEROS_DISPONIVEIS
+      .map(genero => `<option value="${escaparHTML(genero)}">${escaparHTML(genero)}</option>`)
+      .join('');
+    selectFiltro.innerHTML = `<option value="todos">Todos os Gêneros</option>${opcoesHTML}`;
+    selectFiltro.value = valorAtual;
+  }
+}
+
+function obterGenerosSelecionados() {
+  return Array.from(document.querySelectorAll('.checkbox-genero:checked'))
+    .map(el => el.value.trim())
+    .filter(Boolean);
+}
+
+function definirGenerosSelecionados(generoValor) {
+  const selecionados = new Set(parseGeneros(generoValor).map(g => g.toLowerCase()));
+  document.querySelectorAll('.checkbox-genero').forEach(el => {
+    el.checked = selecionados.has(el.value.toLowerCase());
+  });
+}
+
+document.getElementById('btn-limpar-generos').onclick = () => {
+  definirGenerosSelecionados([]);
+};
 
 // 1. Autenticação Admin e Controle de Abas
 async function verificarSessao() {
@@ -173,6 +278,11 @@ document.getElementById('btn-buscar-api').onclick = async () => {
 // 4. Salvar ou Atualizar Módulo + Compressão de Fotos
 document.getElementById('form-encontro').onsubmit = async (e) => {
   e.preventDefault();
+  const generosSelecionados = obterGenerosSelecionados();
+  if (!generosSelecionados.length) {
+    return alert('Selecione pelo menos um gênero para o livro.');
+  }
+
   const btnSalvar = document.getElementById('btn-salvar-modulo');
   btnSalvar.disabled = true;
   btnSalvar.textContent = 'Processando e salvando...';
@@ -204,7 +314,7 @@ document.getElementById('form-encontro').onsubmit = async (e) => {
     titulo: document.getElementById('livro-titulo').value.trim(),
     autor: document.getElementById('livro-autor').value.trim(),
     capa: document.getElementById('livro-capa').value.trim(),
-    genero: document.getElementById('livro-genero').value,
+    genero: generosSelecionados.join(', '),
     status: document.getElementById('livro-status').value,
     data_encontro: document.getElementById('encontro-data').value,
     horario_local: document.getElementById('encontro-local').value.trim(),
@@ -250,7 +360,7 @@ window.prepararEdicao = (id) => {
   document.getElementById('livro-titulo').value = item.titulo || '';
   document.getElementById('livro-autor').value = item.autor || '';
   document.getElementById('livro-capa').value = item.capa || '';
-  document.getElementById('livro-genero').value = item.genero || '';
+  definirGenerosSelecionados(item.genero || '');
   document.getElementById('livro-status').value = item.status || 'atual';
   document.getElementById('encontro-data').value = item.data_encontro || '';
   document.getElementById('encontro-local').value = item.horario_local || '';
@@ -273,6 +383,7 @@ window.excluirModulo = async (id, titulo) => {
 
 function resetarFormulario() {
   document.getElementById('form-encontro').reset();
+  definirGenerosSelecionados([]);
   document.getElementById('edit-id').value = '';
   document.getElementById('edit-fotos-existentes').value = '';
   document.getElementById('titulo-form-admin').textContent = '⚙️ Novo Módulo / Leitura';
@@ -321,6 +432,16 @@ function gerarLinkGoogleAgenda(item) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${titulo}&dates=${dataLimpa}/${dataLimpa}&details=${detalhes}&location=${local}`;
 }
 
+function renderizarTagsGenero(generoValor) {
+  const listaGeneros = parseGeneros(generoValor);
+  if (!listaGeneros.length) {
+    return `<span class="tag">Geral</span>`;
+  }
+  return listaGeneros
+    .map(g => `<span class="tag">${escaparHTML(g)}</span>`)
+    .join('');
+}
+
 function renderizarTela() {
   const statusFiltro = document.getElementById('filtro-status').value;
   const generoFiltro = document.getElementById('filtro-genero').value;
@@ -339,7 +460,7 @@ function renderizarTela() {
       <div class="modulo-info-topo">
         <img src="${escaparHTML(atual.capa || 'https://placehold.co/65x95?text=Capa')}" alt="Capa de ${escaparHTML(atual.titulo)}">
         <div style="flex:1;">
-          <span class="tag">${escaparHTML(atual.genero || 'Geral')}</span>
+          <div>${renderizarTagsGenero(atual.genero)}</div>
           <h3 style="margin:6px 0 4px 0;">${escaparHTML(atual.titulo)} — <small>${escaparHTML(atual.autor)}</small></h3>
           <p style="margin:4px 0;">📅 <strong>Data do Encontro:</strong> ${escaparHTML(formatarDataBR(atual.data_encontro))} ${atual.horario_local ? `(${escaparHTML(atual.horario_local)})` : ''}</p>
           ${atual.meta_texto ? `<p style="margin:4px 0;"><strong>🎯 Meta Atual:</strong> ${escaparHTML(atual.meta_texto)}</p>` : ''}
@@ -361,10 +482,12 @@ function renderizarTela() {
 
   const filtrados = todosEncontros.filter(item => {
     const bateStatus = statusFiltro === 'todos' || item.status === statusFiltro;
-    const bateGenero = generoFiltro === 'todos' || item.genero === generoFiltro;
+    const generosItem = parseGeneros(item.genero).map(g => g.toLowerCase());
+    const bateGenero = generoFiltro === 'todos' || generosItem.includes(generoFiltro.toLowerCase());
     const bateTexto =
       (item.titulo || '').toLowerCase().includes(textoFiltro) ||
-      (item.autor || '').toLowerCase().includes(textoFiltro);
+      (item.autor || '').toLowerCase().includes(textoFiltro) ||
+      (item.genero || '').toLowerCase().includes(textoFiltro);
     return bateStatus && bateGenero && bateTexto;
   });
 
@@ -398,7 +521,7 @@ function renderizarTela() {
             <img src="${escaparHTML(item.capa || 'https://placehold.co/65x95?text=Capa')}" alt="Capa de ${escaparHTML(item.titulo)}">
             <div>
               <span class="tag tag-status">${escaparHTML(labelsStatus[item.status] || item.status)}</span>
-              <span class="tag">${escaparHTML(item.genero || 'Geral')}</span>
+              ${renderizarTagsGenero(item.genero)}
               <span class="tag" style="background:#555;">${escaparHTML(formatarDataBR(item.data_encontro))}</span>
               ${item.nota !== null && item.nota !== undefined ? `<span class="tag tag-nota">⭐ ${escaparHTML(item.nota)}/5</span>` : ''}
               <h3 style="margin:6px 0 2px 0;">${escaparHTML(item.titulo)}</h3>
@@ -427,6 +550,7 @@ document.getElementById('filtro-status').onchange = renderizarTela;
 document.getElementById('filtro-genero').onchange = renderizarTela;
 document.getElementById('filtro-texto').oninput = renderizarTela;
 
+montarSeletoresDeGenero();
 verificarSessao();
 carregarGuia();
 carregarEncontros();

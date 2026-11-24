@@ -85,22 +85,23 @@
           <input type="text" id="livro-autor" placeholder="Autor(a)" required>
           <input type="text" id="livro-capa" placeholder="URL da Capa">
 
-          <div class="linha-dupla">
-            <select id="livro-genero" required>
-              <option value="">Selecione o Gênero...</option>
-              <option value="Filosófico">Filosófico</option>
-              <option value="Literatura Clássica">Literatura Clássica</option>
-              <option value="Ficção Científica">Ficção Científica</option>
-              <option value="Romance">Romance</option>
-              <option value="Suspense / Terror">Suspense / Terror</option>
-              <option value="Outro">Outro</option>
-            </select>
+          <div class="campo-generos-admin">
+            <div class="generos-topo">
+              <label style="margin:0;">Gêneros do Livro (marque quantos fizerem sentido):</label>
+              <button type="button" id="btn-limpar-generos" class="btn-secundario btn-mini">Limpar seleção</button>
+            </div>
+            <div id="container-generos-admin" class="generos-grid"></div>
+          </div>
 
-            <select id="livro-status" required>
-              <option value="atual">📖 Leitura Atual (Em andamento)</option>
-              <option value="proximo">📅 Próxima Leitura (Na fila)</option>
-              <option value="lido">✅ Concluído (Histórico)</option>
-            </select>
+          <div class="linha-dupla">
+            <div>
+              <label for="livro-status">Status da Leitura:</label>
+              <select id="livro-status" required>
+                <option value="atual">📖 Leitura Atual (Em andamento)</option>
+                <option value="proximo">📅 Próxima Leitura (Na fila)</option>
+                <option value="lido">✅ Concluído (Histórico)</option>
+              </select>
+            </div>
           </div>
 
           <label>3. Cronograma e Meta de Acompanhamento:</label>
@@ -172,12 +173,6 @@
         </select>
         <select id="filtro-genero">
           <option value="todos">Todos os Gêneros</option>
-          <option value="Filosófico">Filosófico</option>
-          <option value="Literatura Clássica">Literatura Clássica</option>
-          <option value="Ficção Científica">Ficção Científica</option>
-          <option value="Romance">Romance</option>
-          <option value="Suspense / Terror">Suspense / Terror</option>
-          <option value="Outro">Outro</option>
         </select>
         <input type="text" id="filtro-texto" placeholder="Buscar por escritor ou título...">
       </div>
