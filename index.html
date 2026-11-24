@@ -11,6 +11,16 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+  <script>
+    window.addEventListener('load', () => {
+      if (!window.supabase || !window.imageCompression) {
+        document.body.insertAdjacentHTML(
+          'afterbegin',
+          '<div style="padding:12px;background:#b42318;color:white;text-align:center;font-weight:700">Não foi possível carregar uma dependência necessária. Recarregue a página com acesso à internet.</div>'
+        );
+      }
+    });
+  </script>
 </head>
 <body>
 
@@ -208,6 +218,7 @@
       <div id="box-resenha-individual" class="sub-box-comunidade oculto">
         <h3 style="margin-top:0;">✍️ Publicar Resenha ou Leitura Individual</h3>
         <form id="form-resenha-individual">
+          <input type="hidden" id="resenha-edit-id">
           <div class="linha-dupla">
             <input type="text" id="resenha-titulo" placeholder="Título do Livro" required>
             <input type="text" id="resenha-autor" placeholder="Autor(a)" required>
@@ -274,6 +285,10 @@
   </main>
 
   <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="livros-api.js"></script>
+  <script src="comunidade.js"></script>
+  <script src="ui.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
