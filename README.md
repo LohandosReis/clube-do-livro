@@ -109,6 +109,7 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 
 - Um usuário autenticado pode registrar quantas páginas leu em cada data.
 - Os registros são separados por usuário e pela leitura atual.
+- Cada membro pode excluir seus próprios registros diários pela lista de registros.
 - A interface mostra os totais de hoje, da semana atual, do mês atual e do período registrado.
 - A tela calcula média por dia ativo e sequência de dias consecutivos.
 - Um mapa visual de 84 dias usa blocos coloridos para representar o desempenho diário.

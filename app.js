@@ -278,6 +278,9 @@ function registrarEventos() {
       case 'alternar-permissao':
         alternarPermissaoResenha(id, acao.dataset.novoValor === 'true');
         break;
+      case 'excluir-progresso-leitura':
+        excluirProgressoLeitura(acao.dataset.data);
+        break;
     }
   });
 

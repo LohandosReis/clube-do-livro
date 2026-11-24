@@ -296,3 +296,33 @@ window.salvarProgressoLeitura = async (dataLeitura, paginas) => {
 
   await carregarProgressoLeitura();
 };
+
+window.excluirProgressoLeitura = async (dataLeitura) => {
+  if (!estadoApp.usuario) {
+    return alert('Entre na sua conta para excluir um registro.');
+  }
+
+  const atual = estadoApp.encontros.find(
+    item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
+  );
+  if (!atual) return alert('Não existe uma leitura atual cadastrada.');
+
+  const registro = estadoApp.progressoLeitura.find(item =>
+    item.data_leitura === dataLeitura && item.encontro_id === atual.id
+  );
+  if (!registro) return alert('Esse registro não foi encontrado.');
+
+  const dataFormatada = new Date(`${dataLeitura}T00:00:00`).toLocaleDateString('pt-BR');
+  if (!confirm(`Excluir o registro de leitura do dia ${dataFormatada}?`)) return;
+
+  const { error } = await supabaseClient
+    .from('progresso_leitura')
+    .delete()
+    .eq('usuario_id', estadoApp.usuario.id)
+    .eq('encontro_id', atual.id)
+    .eq('data_leitura', dataLeitura);
+
+  if (error) return alert('Erro ao excluir registro: ' + error.message);
+
+  await carregarProgressoLeitura();
+};

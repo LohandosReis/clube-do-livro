@@ -288,6 +288,29 @@ function renderizarAcompanhamentoLeitura() {
     `);
   }
 
+  const registrosOrdenados = [...registros].sort((a, b) =>
+    b.data_leitura.localeCompare(a.data_leitura)
+  );
+  const registrosHTML = registrosOrdenados.length
+    ? registrosOrdenados.map(item => {
+        const dataFormatada = new Date(`${item.data_leitura}T00:00:00`)
+          .toLocaleDateString('pt-BR');
+        const paginas = Number(item.paginas_lidas) || 0;
+        return `
+          <div class="registro-leitura-item">
+            <span><strong>${escaparHTML(dataFormatada)}</strong> — ${paginas} página${paginas === 1 ? '' : 's'}</span>
+            <button
+              type="button"
+              class="btn-perigo btn-mini"
+              data-action="excluir-progresso-leitura"
+              data-data="${escaparHTML(item.data_leitura)}"
+              aria-label="Excluir registro de ${escaparHTML(dataFormatada)}"
+            >Excluir</button>
+          </div>
+        `;
+      }).join('')
+    : '<small>Você ainda não registrou páginas para este livro.</small>';
+
   painel.innerHTML = `
     <div class="metricas-leitura">
       <div class="metrica-leitura">
@@ -330,6 +353,11 @@ function renderizarAcompanhamentoLeitura() {
         </div>
       </div>
       <div class="heatmap-blocos">${quadrados.join('')}</div>
+    </div>
+
+    <div class="lista-registros-leitura">
+      <h3>Meus registros diários</h3>
+      <div class="registros-leitura-itens">${registrosHTML}</div>
     </div>
   `;
 }

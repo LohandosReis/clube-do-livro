@@ -262,6 +262,10 @@ create policy "progresso_leitura_proprio" on public.progresso_leitura
     usuario_id = auth.uid()
   );
 
+grant select, insert, update, delete
+  on table public.progresso_leitura
+  to authenticated;
+
 insert into storage.buckets (id, name, public)
 values ('fotos-clube', 'fotos-clube', true)
 on conflict (id) do update set public = true;
