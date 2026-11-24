@@ -168,6 +168,7 @@ function mapearCategoriasApiParaGeneros(categorias = []) {
   if (/horror|terror/i.test(textoCats)) adicionar('Terror / Horror');
   if (/romance|love/i.test(textoCats)) adicionar('Romance');
   if (/poetr|poesi/i.test(textoCats)) adicionar('Poesia');
+  if (/short stor|cont/i.test(textoCats)) adicionar('Contos');
   if (/biograph|biograf|memór/i.test(textoCats)) adicionar('Biografia / Memórias');
   if (/sociolog/i.test(textoCats)) adicionar('Sociologia');
   if (/econom|business|finanç/i.test(textoCats)) adicionar('Economia / Finanças');
@@ -316,7 +317,7 @@ document.getElementById('form-guia').onsubmit = async (e) => {
   carregarGuia();
 };
 
-// 3. Buscar Livro na Internet (OpenLibrary como principal + fallback Google Books)
+// 3. Buscar Livro em Múltiplas Fontes (OpenLibrary + Gutendex + Google Books)
 async function buscarNaOpenLibrary(termo) {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(termo)}&limit=8`;
   const res = await fetch(url);
@@ -337,17 +338,40 @@ async function buscarNaOpenLibrary(termo) {
     const ano = doc.first_publish_year ? `Primeira publicação: ${doc.first_publish_year}.` : '';
     const descricao = ano ? `${ano} Obra catalogada na OpenLibrary.` : '';
 
-    return { titulo, autor, capa, paginas, categorias, descricao };
+    return { fonte: 'OpenLibrary', titulo, autor, capa, paginas, categorias, descricao };
+  });
+}
+
+async function buscarNoGutendex(termo) {
+  const url = `https://gutendex.com/books/?search=${encodeURIComponent(termo)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Gutendex HTTP ${res.status}`);
+  const dados = await res.json();
+  const books = Array.isArray(dados.results) ? dados.results.slice(0, 6) : [];
+
+  return books.map(book => {
+    const titulo = book.title || 'Sem título';
+    const autores = Array.isArray(book.authors) && book.authors.length
+      ? book.authors.map(a => a.name).join(', ')
+      : 'Autor desconhecido';
+    const capa = book.formats?.['image/jpeg'] || 'https://placehold.co/95x135?text=Sem+Capa';
+    const categorias = [
+      ...(Array.isArray(book.subjects) ? book.subjects.slice(0, 5) : []),
+      ...(Array.isArray(book.bookshelves) ? book.bookshelves.slice(0, 3) : [])
+    ];
+    const descricao = categorias.length
+      ? `Clássico / Domínio público (Gutendex). Temas: ${categorias.slice(0, 4).join(', ')}.`
+      : 'Clássico / Domínio público catalogado no Project Gutenberg.';
+
+    return { fonte: 'Gutenberg', titulo, autor: autores, capa, paginas: '', categorias, descricao };
   });
 }
 
 async function buscarNoGoogleBooks(termo) {
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}&maxResults=8&printType=books`;
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}&maxResults=6&printType=books`;
   const res = await fetch(url);
   if (res.status === 429) {
-    const err = new Error('Google Books rate limit (429)');
-    err.code = 429;
-    throw err;
+    return [];
   }
   if (!res.ok) throw new Error(`Google Books HTTP ${res.status}`);
   const dados = await res.json();
@@ -365,8 +389,29 @@ async function buscarNoGoogleBooks(termo) {
     const categorias = Array.isArray(info.categories) ? info.categories : [];
     const descricao = info.description || '';
 
-    return { titulo, autor, capa, paginas, categorias, descricao };
+    return { fonte: 'Google Books', titulo, autor, capa, paginas, categorias, descricao };
   });
+}
+
+function pontuarRelevancia(livro, termo) {
+  const tokens = termo
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/\s+/)
+    .filter(t => t.length >= 2);
+
+  const alvo = `${livro.titulo} ${livro.autor}`
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  let pontos = 0;
+  tokens.forEach(token => {
+    if (alvo.includes(token)) pontos += 2;
+  });
+  if (livro.capa && !livro.capa.includes('placehold.co')) pontos += 1;
+  return pontos;
 }
 
 document.getElementById('btn-buscar-api').onclick = async () => {
@@ -374,62 +419,67 @@ document.getElementById('btn-buscar-api').onclick = async () => {
   if (!termo) return;
 
   const container = document.getElementById('resultados-api');
-  container.innerHTML = '<small>Buscando na internet...</small>';
+  container.innerHTML = '<small>Buscando na OpenLibrary, Gutenberg e Google Books...</small>';
 
-  try {
-    let resultados = await buscarNaOpenLibrary(termo);
+  const consultas = await Promise.allSettled([
+    buscarNaOpenLibrary(termo),
+    buscarNoGutendex(termo),
+    buscarNoGoogleBooks(termo)
+  ]);
 
-    if (!resultados.length) {
-      try {
-        resultados = await buscarNoGoogleBooks(termo);
-      } catch (gbErr) {
-        if (gbErr.code !== 429) throw gbErr;
-      }
+  let combinados = [];
+  consultas.forEach(resultado => {
+    if (resultado.status === 'fulfilled' && Array.isArray(resultado.value)) {
+      combinados = combinados.concat(resultado.value);
     }
+  });
 
-    container.innerHTML = '';
+  combinados.sort((a, b) => pontuarRelevancia(b, termo) - pontuarRelevancia(a, termo));
+  combinados = combinados.slice(0, 14);
 
-    if (!resultados.length) {
-      container.innerHTML = '<small>Nenhum livro encontrado na internet para esse termo. Tente outro título ou nome do autor.</small>';
-      return;
-    }
+  container.innerHTML = '';
 
-    resultados.forEach(livro => {
-      const div = document.createElement('div');
-      div.className = 'item-api';
-      div.innerHTML = `
-        <img src="${escaparHTML(livro.capa)}" alt="${escaparHTML(livro.titulo)}" loading="lazy">
-        <p><strong>${escaparHTML(livro.titulo)}</strong><br><small>${escaparHTML(livro.autor)}${livro.paginas ? ` • ${livro.paginas} págs.` : ''}</small></p>
-      `;
-
-      div.onclick = () => {
-        document.getElementById('livro-titulo').value = livro.titulo;
-        document.getElementById('livro-autor').value = livro.autor;
-        document.getElementById('livro-capa').value = livro.capa;
-        if (livro.paginas) {
-          document.getElementById('livro-paginas-totais').value = livro.paginas;
-        }
-
-        const generosSugeridos = mapearCategoriasApiParaGeneros(livro.categorias);
-        if (generosSugeridos.length) {
-          definirGenerosSelecionados(generosSugeridos, true);
-        }
-
-        const campoBio = document.getElementById('autor-bio');
-        if (livro.descricao && !campoBio.value.trim()) {
-          const resumoLimpo = livro.descricao.replace(/\s+/g, ' ').trim();
-          campoBio.value = `Autor(a): ${livro.autor}\n• Contexto / Sinopse inicial: ${resumoLimpo}`;
-        }
-
-        container.innerHTML = '<small>✅ Dados preenchidos automaticamente! Revise e ajuste o que quiser antes de publicar.</small>';
-      };
-
-      container.appendChild(div);
-    });
-  } catch (err) {
-    console.error('Erro na busca de livros:', err);
-    container.innerHTML = '<small>Não foi possível buscar livros agora. Aguarde alguns segundos e tente novamente.</small>';
+  if (!combinados.length) {
+    container.innerHTML = '<small>Nenhum livro encontrado nas fontes consultadas. Tente outro título ou nome do autor.</small>';
+    return;
   }
+
+  combinados.forEach(livro => {
+    const div = document.createElement('div');
+    div.className = 'item-api';
+    div.innerHTML = `
+      <img src="${escaparHTML(livro.capa)}" alt="${escaparHTML(livro.titulo)}" loading="lazy">
+      <p>
+        <strong>${escaparHTML(livro.titulo)}</strong><br>
+        <small>${escaparHTML(livro.autor)}${livro.paginas ? ` • ${livro.paginas} págs.` : ''}</small><br>
+        <small style="opacity:0.75;">Fonte: ${escaparHTML(livro.fonte)}</small>
+      </p>
+    `;
+
+    div.onclick = () => {
+      document.getElementById('livro-titulo').value = livro.titulo;
+      document.getElementById('livro-autor').value = livro.autor;
+      document.getElementById('livro-capa').value = livro.capa;
+      if (livro.paginas) {
+        document.getElementById('livro-paginas-totais').value = livro.paginas;
+      }
+
+      const generosSugeridos = mapearCategoriasApiParaGeneros(livro.categorias);
+      if (generosSugeridos.length) {
+        definirGenerosSelecionados(generosSugeridos, true);
+      }
+
+      const campoBio = document.getElementById('autor-bio');
+      if (livro.descricao && !campoBio.value.trim()) {
+        const resumoLimpo = livro.descricao.replace(/\s+/g, ' ').trim();
+        campoBio.value = `Autor(a): ${livro.autor}\n• Contexto / Sinopse inicial: ${resumoLimpo}`;
+      }
+
+      container.innerHTML = '<small>✅ Dados preenchidos automaticamente! Revise e ajuste o que quiser antes de publicar.</small>';
+    };
+
+    container.appendChild(div);
+  });
 };
 
 document.getElementById('input-busca-livro').addEventListener('keydown', (e) => {
