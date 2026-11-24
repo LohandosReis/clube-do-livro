@@ -5,6 +5,10 @@ const painelAdmin = document.getElementById('painel-admin');
 const secaoLogin = document.getElementById('secao-login');
 const btnAbrirLogin = document.getElementById('btn-abrir-login');
 const btnSair = document.getElementById('btn-sair');
+// Exemplo: se você tiver uma variável com o texto da biografia (ex: encontro.autor_bio)
+const bioFormatada = (encontro.autor_bio || "")
+  .replace(/\s*•\s*/g, "\n• ")
+  .trim();
 
 function escaparHTML(texto = '') {
   return String(texto)

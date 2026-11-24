@@ -459,9 +459,16 @@ button:active, .btn-agenda:active {
   background: var(--ambar);
 }
 
+/* Preserva quebras de linha e melhora a leitura dos textos do módulo */
 .modulo-corpo {
-  padding: 1.4rem 1.5rem;
-  line-height: 1.68;
+  padding: 1.5rem 1.65rem;
+  line-height: 1.75;
+  color: var(--texto);
+}
+
+.modulo-corpo p,
+.modulo-corpo div {
+  white-space: pre-line;
 }
 
 /* Caixa de Spoiler */
