@@ -44,6 +44,7 @@ A aplicação está dividida em duas experiências principais:
    - comentários;
    - criação de indicações;
    - votação em indicações;
+   - edição do próprio perfil e busca de membros que optaram por aparecer;
    - exclusão de conteúdo próprio;
    - publicação de resenhas individuais, quando habilitado pelo administrador.
    - registro pessoal de páginas lidas por dia;
@@ -106,6 +107,14 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Exclusão do próprio comentário ou indicação.
 - Visitantes sem login podem apenas visualizar conteúdo já publicado; formulários, votação, avaliação e comentários só aparecem para membros autenticados.
 - O Admin Master pode editar ou remover perfis públicos, comentários, indicações e avaliações de qualquer membro, além de remover votos.
+
+### Perfil e diretório de membros
+
+- Cada membro pode editar o próprio nome ou apelido, foto, biografia, cidade/estado, gêneros, livros e autores favoritos, link pessoal e um campo personalizado.
+- Cada campo tem uma preferência independente: somente a própria pessoa, membros conectados ou todos os visitantes.
+- O diretório só funciona para membros conectados e lista apenas perfis que ativaram explicitamente a opção de aparecer na busca.
+- As informações do perfil compartilhadas por um link respeitam as mesmas preferências. E-mail, metas e histórico pessoal de leitura não são incluídos.
+- Fotos novas ficam em um bucket privado e são exibidas por URLs temporárias somente quando a preferência do campo permite. Fotos antigas em endereços públicos precisam ser reenviadas para poder restringir sua visibilidade.
 
 ### Acompanhamento pessoal
 
@@ -249,8 +258,9 @@ O script:
 - cria funções auxiliares;
 - habilita Row Level Security;
 - cria políticas de leitura e escrita;
-- cria o bucket público `fotos-clube`;
-- cria as políticas de upload e exclusão de imagens.
+- cria o bucket público `fotos-clube` para fotos de livros;
+- cria o bucket privado `fotos-perfis-clube` para fotos de perfil;
+- cria as políticas de upload, leitura autorizada e exclusão de imagens.
 
 O script foi escrito para preservar tabelas existentes e adicionar colunas quando necessário. Se já executou uma versão anterior, execute novamente o arquivo completo para aplicar as tabelas, políticas e permissões mais recentes.
 
@@ -315,20 +325,38 @@ O mesmo e-mail precisa corresponder à função SQL `clube_e_admin()`, definida 
 
 ## Modelo de dados
 
-Todas as entidades são públicas para leitura. Operações de escrita são protegidas por RLS.
+As leituras do clube e o conteúdo comunitário publicado podem ser lidos por visitantes. Perfis e dados pessoais têm regras de acesso próprias; operações de escrita são protegidas por RLS.
 
 ### `perfis_clube`
 
-Representa o perfil público de um membro.
+Armazena os campos básicos do perfil. O e-mail é privado e não pode ser consultado diretamente pelo cliente. Nome e foto só são retornados pelas funções de perfil de acordo com as preferências de visibilidade.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | `uuid` | Chave estrangeira do usuário em `auth.users`. |
-| `email` | `text` | E-mail público exibido no painel administrativo. |
+| `email` | `text` | Campo legado privado; o painel administrativo recebe e-mail por uma função restrita. |
 | `nome` | `text` | Nome ou apelido exibido na interface. |
-| `foto_url` | `text` | URL pública da foto de perfil. |
+| `foto_url` | `text` | Caminho no bucket privado ou URL de foto legada. |
 | `pode_publicar_resenha` | `boolean` | Autoriza resenhas individuais. |
 | `criado_em` | `timestamptz` | Data de criação. |
+
+### `perfis_clube_detalhes`
+
+Armazena informações opcionais do perfil e preferências independentes de privacidade. O acesso direto à tabela é limitado ao próprio membro; o site usa funções SQL que retornam somente os campos autorizados.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `usuario_id` | `uuid` | Dono do perfil e chave primária. |
+| `bio` | `text` | Biografia. |
+| `cidade_estado` | `text` | Cidade e estado informados pela pessoa. |
+| `generos_favoritos` | `text` | Gêneros literários favoritos. |
+| `livros_favoritos` | `text` | Livros favoritos. |
+| `autores_favoritos` | `text` | Autores favoritos. |
+| `link_perfil` | `text` | Link pessoal com protocolo HTTP ou HTTPS. |
+| `campo_personalizado_nome`, `campo_personalizado_valor` | `text` | Rótulo e conteúdo de um campo adicional. |
+| `listar_no_diretorio` | `boolean` | Adesão explícita ao diretório de membros. |
+| `visibilidade_*` | `text` | `privado`, `membros` ou `publico` para cada campo. |
+| `atualizado_em` | `timestamptz` | Momento da última edição. |
 
 ### `encontros`
 
@@ -461,13 +489,15 @@ As tabelas usam RLS (Row Level Security). As regras principais são:
 
 ### Leitura
 
-Todas as tabelas de conteúdo e perfis permitem leitura pública.
+Leituras do clube, comentários, indicações e avaliações publicadas podem ser lidas por visitantes. O cliente não pode ler diretamente e-mails nem detalhes privados dos perfis.
 
 ### Perfis
 
-- o usuário pode criar seu próprio perfil;
-- o usuário não pode inicialmente alterar sua própria autorização de resenha;
-- o administrador pode alterar perfis e permissões.
+- o usuário pode consultar e editar somente seu próprio registro de detalhes;
+- funções SQL filtram campos do perfil pelas preferências de privacidade;
+- o diretório exige autenticação e adesão explícita do membro;
+- e-mail e dados pessoais de leitura não são retornados no diretório ou nos links compartilhados;
+- permissões de publicação de resenha não podem ser alteradas pelo próprio membro.
 
 ### Leituras
 
@@ -501,11 +531,12 @@ Todas as tabelas de conteúdo e perfis permitem leitura pública.
 
 ### Fotos
 
-O bucket `fotos-clube` é público para leitura.
+O bucket `fotos-clube` é público para leitura e guarda fotos dos livros.
 
-- somente usuários autenticados podem enviar;
-- o autor ou o administrador pode excluir um objeto;
-- a exclusão chama o Storage após remoção da URL do estado local.
+- O bucket privado `fotos-perfis-clube` guarda fotos de perfil novas; cada arquivo fica na pasta do UUID do próprio usuário.
+- Fotos privadas são assinadas por tempo limitado após a função SQL confirmar que a visibilidade do perfil autoriza o acesso.
+- O próprio usuário pode enviar e excluir arquivos apenas de sua pasta.
+- Fotos legadas em URLs públicas permanecem públicas no serviço que as hospeda até serem substituídas ou removidas.
 
 Os registros de metas e progresso pessoal continuam privados para cada membro, inclusive para o Admin Master; as permissões administrativas abrangem o conteúdo público do site.
 
@@ -581,6 +612,14 @@ O administrador pode habilitar ou revogar essa permissão na aba **Usuários e P
 - Indicações exigem login.
 - A votação exige login e pode ser alternada.
 - Exclusões exigem ser o autor ou o administrador.
+
+### Editar perfil e encontrar membros
+
+1. Entrar na conta e abrir **Meu perfil e membros**.
+2. Preencher apenas as informações que deseja compartilhar.
+3. Escolher separadamente quem pode ver cada campo.
+4. Marcar a opção de aparecer no diretório para permitir que outros membros conectados encontrem o perfil.
+5. Salvar. Para restringir uma foto pública antiga, reenviá-la usando o formulário antes de mudar a visibilidade.
 
 ## Integrações externas
 

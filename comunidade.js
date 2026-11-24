@@ -511,7 +511,15 @@ async function carregarMetricasGrupo() {
   if (resCartoes.error) {
     console.warn('Erro ao carregar cartões publicados:', resCartoes.error.message);
   } else {
-    estadoApp.cartoesProgressoPublicos = resCartoes.data || [];
+    try {
+      estadoApp.cartoesProgressoPublicos = await assinarFotosDePerfis(resCartoes.data || []);
+    } catch (errorFoto) {
+      console.error('Erro ao preparar fotos dos cartões compartilhados:', errorFoto);
+      estadoApp.cartoesProgressoPublicos = (resCartoes.data || []).map(cartao => ({
+        ...cartao,
+        foto_url: ''
+      }));
+    }
   }
 
   renderizarMetricasGrupo();

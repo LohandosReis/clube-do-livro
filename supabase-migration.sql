@@ -21,6 +21,66 @@ create table if not exists public.perfis_clube (
   criado_em timestamptz not null default now()
 );
 
+create table if not exists public.perfis_clube_detalhes (
+  usuario_id uuid primary key references auth.users(id) on delete cascade,
+  bio text not null default '',
+  cidade_estado text not null default '',
+  generos_favoritos text not null default '',
+  livros_favoritos text not null default '',
+  autores_favoritos text not null default '',
+  link_perfil text not null default '',
+  campo_personalizado_nome text not null default '',
+  campo_personalizado_valor text not null default '',
+  listar_no_diretorio boolean not null default false,
+  visibilidade_nome text not null default 'privado'
+    check (visibilidade_nome in ('privado', 'membros', 'publico')),
+  visibilidade_foto text not null default 'privado'
+    check (visibilidade_foto in ('privado', 'membros', 'publico')),
+  visibilidade_bio text not null default 'privado'
+    check (visibilidade_bio in ('privado', 'membros', 'publico')),
+  visibilidade_cidade_estado text not null default 'privado'
+    check (visibilidade_cidade_estado in ('privado', 'membros', 'publico')),
+  visibilidade_generos_favoritos text not null default 'privado'
+    check (visibilidade_generos_favoritos in ('privado', 'membros', 'publico')),
+  visibilidade_livros_favoritos text not null default 'privado'
+    check (visibilidade_livros_favoritos in ('privado', 'membros', 'publico')),
+  visibilidade_autores_favoritos text not null default 'privado'
+    check (visibilidade_autores_favoritos in ('privado', 'membros', 'publico')),
+  visibilidade_link_perfil text not null default 'privado'
+    check (visibilidade_link_perfil in ('privado', 'membros', 'publico')),
+  visibilidade_campo_personalizado text not null default 'privado'
+    check (visibilidade_campo_personalizado in ('privado', 'membros', 'publico')),
+  atualizado_em timestamptz not null default now()
+);
+
+create or replace function public.clube_criar_detalhes_perfil()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  insert into public.perfis_clube_detalhes (usuario_id)
+  values (new.id)
+  on conflict (usuario_id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists clube_criar_detalhes_perfil on public.perfis_clube;
+create trigger clube_criar_detalhes_perfil
+  after insert on public.perfis_clube
+  for each row execute function public.clube_criar_detalhes_perfil();
+
+insert into public.perfis_clube_detalhes (
+  usuario_id,
+  visibilidade_nome,
+  visibilidade_foto
+)
+select id, 'publico', 'publico'
+from public.perfis_clube
+on conflict (usuario_id) do nothing;
+
 create or replace function public.clube_permissao_resenha(usuario uuid)
 returns boolean
 language sql
@@ -138,6 +198,7 @@ alter table public.encontros add column if not exists autor_postagem_id uuid ref
 alter table public.encontros add column if not exists autor_postagem_nome text not null default '';
 
 alter table public.perfis_clube enable row level security;
+alter table public.perfis_clube_detalhes enable row level security;
 alter table public.encontros enable row level security;
 alter table public.guia_clube enable row level security;
 alter table public.avaliacoes_livro enable row level security;
@@ -160,8 +221,9 @@ do $$ begin
 end $$;
 
 drop policy if exists "perfis_leitura_publica" on public.perfis_clube;
-create policy "perfis_leitura_publica" on public.perfis_clube
-  for select using (true);
+drop policy if exists "perfis_proprio_leitura" on public.perfis_clube;
+create policy "perfis_proprio_leitura" on public.perfis_clube
+  for select using (id = auth.uid());
 
 drop policy if exists "perfis_criar_proprio" on public.perfis_clube;
 create policy "perfis_criar_proprio" on public.perfis_clube
@@ -182,6 +244,450 @@ drop policy if exists "perfis_admin_total" on public.perfis_clube;
 create policy "perfis_admin_total" on public.perfis_clube
   for all using (public.clube_e_admin())
   with check (public.clube_e_admin());
+
+drop policy if exists "detalhes_perfil_proprio" on public.perfis_clube_detalhes;
+create policy "detalhes_perfil_proprio" on public.perfis_clube_detalhes
+  for all using (usuario_id = auth.uid())
+  with check (usuario_id = auth.uid());
+
+revoke all on table public.perfis_clube from public, anon, authenticated;
+grant select (id, nome, foto_url, pode_publicar_resenha, criado_em)
+  on table public.perfis_clube to authenticated;
+grant insert (id, nome, foto_url, pode_publicar_resenha)
+  on table public.perfis_clube to authenticated;
+grant update (nome, foto_url, pode_publicar_resenha)
+  on table public.perfis_clube to authenticated;
+
+revoke all on table public.perfis_clube_detalhes from public, anon, authenticated;
+grant select, insert, update, delete
+  on table public.perfis_clube_detalhes to authenticated;
+
+create or replace function public.clube_foto_perfil_pode_ler(p_usuario_id text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select auth.uid()::text = p_usuario_id
+    or exists (
+      select 1
+      from public.perfis_clube_detalhes d
+      where d.usuario_id::text = p_usuario_id
+        and (
+          d.visibilidade_foto = 'publico'
+          or (auth.uid() is not null and d.visibilidade_foto = 'membros')
+        )
+    );
+$$;
+
+create or replace function public.clube_perfis_exibicao()
+returns table (
+  id uuid,
+  nome text,
+  foto_url text,
+  pode_publicar_resenha boolean
+)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select
+    p.id,
+    case
+      when p.id = auth.uid()
+        or d.visibilidade_nome = 'publico'
+        or (auth.uid() is not null and d.visibilidade_nome = 'membros')
+      then p.nome
+      else ''
+    end,
+    case
+      when p.id = auth.uid()
+        or d.visibilidade_foto = 'publico'
+        or (auth.uid() is not null and d.visibilidade_foto = 'membros')
+      then p.foto_url
+      else ''
+    end,
+    case when p.id = auth.uid() then p.pode_publicar_resenha else false end
+  from public.perfis_clube p
+  join public.perfis_clube_detalhes d on d.usuario_id = p.id
+  where (
+    p.id = auth.uid()
+    or p.id in (
+      select c.usuario_id from public.comentarios_livro c
+      union
+      select a.usuario_id from public.avaliacoes_livro a
+      union
+      select i.usuario_id from public.indicacoes_livro i
+      union
+      select e.autor_postagem_id
+      from public.encontros e
+      where e.tipo_postagem = 'individual'
+        and e.autor_postagem_id is not null
+    )
+  )
+    and (
+      p.id = auth.uid()
+      or (
+        auth.uid() is not null
+        and (
+          d.visibilidade_nome in ('publico', 'membros')
+          or d.visibilidade_foto in ('publico', 'membros')
+        )
+      )
+      or (
+        auth.uid() is null
+        and (
+          d.visibilidade_nome = 'publico'
+          or d.visibilidade_foto = 'publico'
+        )
+      )
+    );
+$$;
+
+create or replace function public.clube_buscar_perfis(p_busca text default '')
+returns table (
+  id uuid,
+  nome text,
+  foto_url text,
+  bio text,
+  cidade_estado text,
+  generos_favoritos text,
+  livros_favoritos text,
+  autores_favoritos text,
+  link_perfil text,
+  campo_personalizado_nome text,
+  campo_personalizado_valor text
+)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  declare
+    termo text := trim(coalesce(p_busca, ''));
+  begin
+    if auth.uid() is null then
+      raise exception 'É necessário entrar para pesquisar perfis.';
+    end if;
+
+    return query
+    select
+      p.id,
+      p.nome,
+      case when d.visibilidade_foto in ('publico', 'membros') then p.foto_url else '' end,
+      case when d.visibilidade_bio in ('publico', 'membros') then d.bio else '' end,
+      case when d.visibilidade_cidade_estado in ('publico', 'membros') then d.cidade_estado else '' end,
+      case when d.visibilidade_generos_favoritos in ('publico', 'membros') then d.generos_favoritos else '' end,
+      case when d.visibilidade_livros_favoritos in ('publico', 'membros') then d.livros_favoritos else '' end,
+      case when d.visibilidade_autores_favoritos in ('publico', 'membros') then d.autores_favoritos else '' end,
+      case when d.visibilidade_link_perfil in ('publico', 'membros') then d.link_perfil else '' end,
+      case when d.visibilidade_campo_personalizado in ('publico', 'membros') then d.campo_personalizado_nome else '' end,
+      case when d.visibilidade_campo_personalizado in ('publico', 'membros') then d.campo_personalizado_valor else '' end
+    from public.perfis_clube p
+    join public.perfis_clube_detalhes d on d.usuario_id = p.id
+    where d.listar_no_diretorio
+      and d.visibilidade_nome in ('publico', 'membros')
+      and (
+        termo = ''
+        or p.nome ilike '%' || termo || '%'
+        or (d.visibilidade_bio in ('publico', 'membros') and d.bio ilike '%' || termo || '%')
+        or (d.visibilidade_cidade_estado in ('publico', 'membros') and d.cidade_estado ilike '%' || termo || '%')
+        or (d.visibilidade_generos_favoritos in ('publico', 'membros') and d.generos_favoritos ilike '%' || termo || '%')
+        or (d.visibilidade_livros_favoritos in ('publico', 'membros') and d.livros_favoritos ilike '%' || termo || '%')
+        or (d.visibilidade_autores_favoritos in ('publico', 'membros') and d.autores_favoritos ilike '%' || termo || '%')
+        or (d.visibilidade_link_perfil in ('publico', 'membros') and d.link_perfil ilike '%' || termo || '%')
+        or (d.visibilidade_campo_personalizado in ('publico', 'membros')
+          and (d.campo_personalizado_nome ilike '%' || termo || '%'
+            or d.campo_personalizado_valor ilike '%' || termo || '%'))
+      )
+    order by p.nome
+    limit 100;
+  end;
+$$;
+
+create or replace function public.clube_perfil_detalhado(p_usuario_id uuid)
+returns table (
+  id uuid,
+  nome text,
+  foto_url text,
+  bio text,
+  cidade_estado text,
+  generos_favoritos text,
+  livros_favoritos text,
+  autores_favoritos text,
+  link_perfil text,
+  campo_personalizado_nome text,
+  campo_personalizado_valor text
+)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select
+    p.id,
+    case when p.id = auth.uid()
+      or d.visibilidade_nome = 'publico'
+      or (auth.uid() is not null and d.visibilidade_nome = 'membros')
+      then p.nome else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_foto = 'publico'
+      or (auth.uid() is not null and d.visibilidade_foto = 'membros')
+      then p.foto_url else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_bio = 'publico'
+      or (auth.uid() is not null and d.visibilidade_bio = 'membros')
+      then d.bio else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_cidade_estado = 'publico'
+      or (auth.uid() is not null and d.visibilidade_cidade_estado = 'membros')
+      then d.cidade_estado else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_generos_favoritos = 'publico'
+      or (auth.uid() is not null and d.visibilidade_generos_favoritos = 'membros')
+      then d.generos_favoritos else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_livros_favoritos = 'publico'
+      or (auth.uid() is not null and d.visibilidade_livros_favoritos = 'membros')
+      then d.livros_favoritos else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_autores_favoritos = 'publico'
+      or (auth.uid() is not null and d.visibilidade_autores_favoritos = 'membros')
+      then d.autores_favoritos else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_link_perfil = 'publico'
+      or (auth.uid() is not null and d.visibilidade_link_perfil = 'membros')
+      then d.link_perfil else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_campo_personalizado = 'publico'
+      or (auth.uid() is not null and d.visibilidade_campo_personalizado = 'membros')
+      then d.campo_personalizado_nome else '' end,
+    case when p.id = auth.uid()
+      or d.visibilidade_campo_personalizado = 'publico'
+      or (auth.uid() is not null and d.visibilidade_campo_personalizado = 'membros')
+      then d.campo_personalizado_valor else '' end
+  from public.perfis_clube p
+  join public.perfis_clube_detalhes d on d.usuario_id = p.id
+  where p.id = p_usuario_id
+    and (
+      p.id = auth.uid()
+      or (
+        auth.uid() is not null
+        and (
+          d.visibilidade_nome in ('publico', 'membros')
+          or d.visibilidade_foto in ('publico', 'membros')
+          or d.visibilidade_bio in ('publico', 'membros')
+          or d.visibilidade_cidade_estado in ('publico', 'membros')
+          or d.visibilidade_generos_favoritos in ('publico', 'membros')
+          or d.visibilidade_livros_favoritos in ('publico', 'membros')
+          or d.visibilidade_autores_favoritos in ('publico', 'membros')
+          or d.visibilidade_link_perfil in ('publico', 'membros')
+          or d.visibilidade_campo_personalizado in ('publico', 'membros')
+        )
+      )
+      or (
+        auth.uid() is null
+        and (
+          d.visibilidade_nome = 'publico'
+          or d.visibilidade_foto = 'publico'
+          or d.visibilidade_bio = 'publico'
+          or d.visibilidade_cidade_estado = 'publico'
+          or d.visibilidade_generos_favoritos = 'publico'
+          or d.visibilidade_livros_favoritos = 'publico'
+          or d.visibilidade_autores_favoritos = 'publico'
+          or d.visibilidade_link_perfil = 'publico'
+          or d.visibilidade_campo_personalizado = 'publico'
+        )
+      )
+    );
+$$;
+
+create or replace function public.clube_listar_perfis_admin()
+returns table (
+  id uuid,
+  email text,
+  nome text,
+  foto_url text,
+  pode_publicar_resenha boolean,
+  criado_em timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public, auth, pg_temp
+as $$
+  select
+    p.id,
+    coalesce(u.email, ''),
+    case when d.visibilidade_nome in ('publico', 'membros') then p.nome else 'Perfil privado' end,
+    case when d.visibilidade_foto in ('publico', 'membros') then p.foto_url else '' end,
+    p.pode_publicar_resenha,
+    p.criado_em
+  from public.perfis_clube p
+  join auth.users u on u.id = p.id
+  join public.perfis_clube_detalhes d on d.usuario_id = p.id
+  where public.clube_e_admin()
+  order by p.criado_em desc;
+$$;
+
+create or replace function public.clube_salvar_meu_perfil(
+  p_nome text,
+  p_foto_url text,
+  p_bio text,
+  p_cidade_estado text,
+  p_generos_favoritos text,
+  p_livros_favoritos text,
+  p_autores_favoritos text,
+  p_link_perfil text,
+  p_campo_personalizado_nome text,
+  p_campo_personalizado_valor text,
+  p_listar_no_diretorio boolean,
+  p_visibilidade_nome text,
+  p_visibilidade_foto text,
+  p_visibilidade_bio text,
+  p_visibilidade_cidade_estado text,
+  p_visibilidade_generos_favoritos text,
+  p_visibilidade_livros_favoritos text,
+  p_visibilidade_autores_favoritos text,
+  p_visibilidade_link_perfil text,
+  p_visibilidade_campo_personalizado text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  visibilidades text[] := array[
+    p_visibilidade_nome,
+    p_visibilidade_foto,
+    p_visibilidade_bio,
+    p_visibilidade_cidade_estado,
+    p_visibilidade_generos_favoritos,
+    p_visibilidade_livros_favoritos,
+    p_visibilidade_autores_favoritos,
+    p_visibilidade_link_perfil,
+    p_visibilidade_campo_personalizado
+  ];
+begin
+  if auth.uid() is null then
+    raise exception 'É necessário entrar para editar o perfil.';
+  end if;
+  if coalesce(trim(p_nome), '') = '' or char_length(p_nome) > 80 then
+    raise exception 'Informe um nome com até 80 caracteres.';
+  end if;
+  if exists (
+    select 1 from unnest(visibilidades) as valores(visibilidade)
+    where visibilidade is null or visibilidade not in ('privado', 'membros', 'publico')
+  ) then
+    raise exception 'Uma opção de privacidade do perfil é inválida.';
+  end if;
+  if coalesce(p_listar_no_diretorio, false)
+    and p_visibilidade_nome = 'privado' then
+    raise exception 'Para aparecer no diretório, o nome precisa estar visível aos membros ou ao público.';
+  end if;
+  if char_length(coalesce(p_bio, '')) > 500
+    or char_length(coalesce(p_cidade_estado, '')) > 100
+    or char_length(coalesce(p_generos_favoritos, '')) > 300
+    or char_length(coalesce(p_livros_favoritos, '')) > 500
+    or char_length(coalesce(p_autores_favoritos, '')) > 300
+    or char_length(coalesce(p_campo_personalizado_nome, '')) > 60
+    or char_length(coalesce(p_campo_personalizado_valor, '')) > 300 then
+    raise exception 'Um dos campos do perfil excede o limite de caracteres.';
+  end if;
+  if coalesce(trim(p_link_perfil), '') <> ''
+    and trim(p_link_perfil) !~* '^https?://' then
+    raise exception 'O link do perfil deve começar com http:// ou https://.';
+  end if;
+  if char_length(coalesce(p_link_perfil, '')) > 2048 then
+    raise exception 'O link do perfil excede o limite de caracteres.';
+  end if;
+  if char_length(coalesce(p_foto_url, '')) > 2048
+    or (
+      coalesce(trim(p_foto_url), '') <> ''
+      and trim(p_foto_url) !~* '^https?://'
+      and trim(p_foto_url) !~ ('^' || auth.uid()::text || '/[^/]+$')
+    ) then
+    raise exception 'A foto deve usar um endereço http(s) antigo ou um arquivo enviado para sua própria pasta.';
+  end if;
+
+  update public.perfis_clube
+  set nome = trim(p_nome),
+      foto_url = coalesce(p_foto_url, '')
+  where id = auth.uid();
+  if not found then
+    raise exception 'O perfil da conta ainda não foi criado.';
+  end if;
+
+  insert into public.perfis_clube_detalhes (
+    usuario_id, bio, cidade_estado, generos_favoritos, livros_favoritos,
+    autores_favoritos, link_perfil, campo_personalizado_nome,
+    campo_personalizado_valor, listar_no_diretorio, visibilidade_nome,
+    visibilidade_foto, visibilidade_bio, visibilidade_cidade_estado,
+    visibilidade_generos_favoritos, visibilidade_livros_favoritos,
+    visibilidade_autores_favoritos, visibilidade_link_perfil,
+    visibilidade_campo_personalizado, atualizado_em
+  )
+  values (
+    auth.uid(), coalesce(p_bio, ''), coalesce(p_cidade_estado, ''),
+    coalesce(p_generos_favoritos, ''), coalesce(p_livros_favoritos, ''),
+    coalesce(p_autores_favoritos, ''), coalesce(p_link_perfil, ''),
+    coalesce(p_campo_personalizado_nome, ''),
+    coalesce(p_campo_personalizado_valor, ''),
+    coalesce(p_listar_no_diretorio, false), p_visibilidade_nome,
+    p_visibilidade_foto, p_visibilidade_bio, p_visibilidade_cidade_estado,
+    p_visibilidade_generos_favoritos, p_visibilidade_livros_favoritos,
+    p_visibilidade_autores_favoritos, p_visibilidade_link_perfil,
+    p_visibilidade_campo_personalizado, now()
+  )
+  on conflict (usuario_id) do update set
+    bio = excluded.bio,
+    cidade_estado = excluded.cidade_estado,
+    generos_favoritos = excluded.generos_favoritos,
+    livros_favoritos = excluded.livros_favoritos,
+    autores_favoritos = excluded.autores_favoritos,
+    link_perfil = excluded.link_perfil,
+    campo_personalizado_nome = excluded.campo_personalizado_nome,
+    campo_personalizado_valor = excluded.campo_personalizado_valor,
+    listar_no_diretorio = excluded.listar_no_diretorio,
+    visibilidade_nome = excluded.visibilidade_nome,
+    visibilidade_foto = excluded.visibilidade_foto,
+    visibilidade_bio = excluded.visibilidade_bio,
+    visibilidade_cidade_estado = excluded.visibilidade_cidade_estado,
+    visibilidade_generos_favoritos = excluded.visibilidade_generos_favoritos,
+    visibilidade_livros_favoritos = excluded.visibilidade_livros_favoritos,
+    visibilidade_autores_favoritos = excluded.visibilidade_autores_favoritos,
+    visibilidade_link_perfil = excluded.visibilidade_link_perfil,
+    visibilidade_campo_personalizado = excluded.visibilidade_campo_personalizado,
+    atualizado_em = now();
+end;
+$$;
+
+revoke all on function public.clube_foto_perfil_pode_ler(text) from public, anon, authenticated;
+grant execute on function public.clube_foto_perfil_pode_ler(text) to anon, authenticated;
+
+revoke all on function public.clube_perfis_exibicao() from public, anon, authenticated;
+grant execute on function public.clube_perfis_exibicao() to anon, authenticated;
+
+revoke all on function public.clube_buscar_perfis(text) from public, anon, authenticated;
+grant execute on function public.clube_buscar_perfis(text) to authenticated;
+
+revoke all on function public.clube_perfil_detalhado(uuid) from public, anon, authenticated;
+grant execute on function public.clube_perfil_detalhado(uuid) to anon, authenticated;
+
+revoke all on function public.clube_listar_perfis_admin() from public, anon, authenticated;
+grant execute on function public.clube_listar_perfis_admin() to authenticated;
+
+revoke all on function public.clube_salvar_meu_perfil(
+  text, text, text, text, text, text, text, text, text, text, boolean,
+  text, text, text, text, text, text, text, text, text
+) from public, anon, authenticated;
+grant execute on function public.clube_salvar_meu_perfil(
+  text, text, text, text, text, text, text, text, text, text, boolean,
+  text, text, text, text, text, text, text, text, text
+) to authenticated;
 
 drop policy if exists "encontros_leitura_publica" on public.encontros;
 create policy "encontros_leitura_publica" on public.encontros
@@ -407,14 +913,20 @@ as $$
   select coalesce(
     jsonb_agg(
       jsonb_build_object(
-        'mostrar_nome', compartilhado.mostrar_nome,
-        'mostrar_foto', compartilhado.mostrar_foto,
+        'mostrar_nome', compartilhado.mostrar_nome
+          and detalhes.visibilidade_nome = 'publico',
+        'mostrar_foto', compartilhado.mostrar_foto
+          and detalhes.visibilidade_foto = 'publico',
         'nome', case
-          when compartilhado.mostrar_nome then coalesce(perfil.nome, 'Leitor(a)')
+          when compartilhado.mostrar_nome
+            and detalhes.visibilidade_nome = 'publico'
+          then coalesce(perfil.nome, 'Leitor(a)')
           else null
         end,
         'foto_url', case
-          when compartilhado.mostrar_foto then coalesce(perfil.foto_url, '')
+          when compartilhado.mostrar_foto
+            and detalhes.visibilidade_foto = 'publico'
+          then coalesce(perfil.foto_url, '')
           else ''
         end,
         'paginas_lidas', progresso.total_paginas,
@@ -432,6 +944,8 @@ as $$
     on compartilhado.encontro_id = encontro.id
   left join public.perfis_clube perfil
     on perfil.id = compartilhado.usuario_id
+  left join public.perfis_clube_detalhes detalhes
+    on detalhes.usuario_id = compartilhado.usuario_id
   join lateral (
     select coalesce(sum(p.paginas_lidas), 0) as total_paginas
     from public.progresso_leitura p
@@ -452,6 +966,35 @@ grant execute on function public.clube_metricas_grupo(bigint) to anon, authentic
 revoke all on function public.clube_cartoes_progresso_publicos(bigint) from public;
 revoke all on function public.clube_cartoes_progresso_publicos(bigint) from anon;
 grant execute on function public.clube_cartoes_progresso_publicos(bigint) to anon, authenticated;
+
+insert into storage.buckets (id, name, public)
+values ('fotos-perfis-clube', 'fotos-perfis-clube', false)
+on conflict (id) do update set public = false;
+
+drop policy if exists "fotos_perfis_leitura_compartilhada" on storage.objects;
+create policy "fotos_perfis_leitura_compartilhada"
+  on storage.objects for select
+  using (
+    bucket_id = 'fotos-perfis-clube'
+    and public.clube_foto_perfil_pode_ler((storage.foldername(name))[1])
+  );
+
+drop policy if exists "fotos_perfis_upload_proprio" on storage.objects;
+create policy "fotos_perfis_upload_proprio"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'fotos-perfis-clube'
+    and auth.uid() is not null
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "fotos_perfis_excluir_propria" on storage.objects;
+create policy "fotos_perfis_excluir_propria"
+  on storage.objects for delete
+  using (
+    bucket_id = 'fotos-perfis-clube'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 insert into storage.buckets (id, name, public)
 values ('fotos-clube', 'fotos-clube', true)

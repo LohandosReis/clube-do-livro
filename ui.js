@@ -143,7 +143,7 @@ function renderizarUsuariosAdmin() {
                class="btn-secundario"
                data-action="editar-perfil-membro"
                data-id="${escaparHTML(p.id)}"
-             >Editar perfil</button>
+             >Editar nome do perfil</button>
           ${!isMasterItem ? `<button
             type="button"
             class="${habilitado ? 'btn-primario' : 'btn-secundario'}"
@@ -157,6 +157,90 @@ function renderizarUsuariosAdmin() {
       </div>
     `;
   }).join('');
+}
+
+function criarCamposPerfilHTML(perfil) {
+  const campos = [
+    ['Apresentação', perfil.bio],
+    ['Cidade e estado', perfil.cidade_estado],
+    ['Gêneros favoritos', perfil.generos_favoritos],
+    ['Livros favoritos', perfil.livros_favoritos],
+    ['Autores favoritos', perfil.autores_favoritos]
+  ];
+  const linkSeguro = obterLinkPerfilSeguro(perfil.link_perfil);
+  if (linkSeguro) {
+    campos.push(['Link pessoal', `<a href="${escaparHTML(linkSeguro)}" target="_blank" rel="noopener noreferrer">Abrir link</a>`, true]);
+  }
+  if (perfil.campo_personalizado_nome && perfil.campo_personalizado_valor) {
+    campos.push([perfil.campo_personalizado_nome, perfil.campo_personalizado_valor]);
+  }
+
+  return campos
+    .filter(([, valor]) => Boolean(valor))
+    .map(([rotulo, valor, ehHTML]) => `
+      <div class="perfil-info-item">
+        <strong>${escaparHTML(rotulo)}</strong>
+        <span>${ehHTML ? valor : escaparHTML(valor)}</span>
+      </div>
+    `)
+    .join('');
+}
+
+function obterLinkPerfilSeguro(valor) {
+  if (!valor) return '';
+  try {
+    const url = new URL(valor);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+function renderizarDiretorioPerfis(perfis, mensagem = '') {
+  const container = document.getElementById('lista-perfis-membros');
+  if (!container) return;
+  if (mensagem) {
+    container.innerHTML = `<p class="texto-suave">${escaparHTML(mensagem)}</p>`;
+    return;
+  }
+  if (!perfis.length) {
+    container.innerHTML = '<p class="texto-suave">Nenhum perfil optou por aparecer na busca ou não há resultados para esta pesquisa.</p>';
+    return;
+  }
+
+  container.innerHTML = perfis.map(perfil => {
+    const nome = perfil.nome || 'Membro do Clube';
+    const foto = perfil.foto_url || avatarPadrao(nome);
+    const url = new URL(window.location.href);
+    url.searchParams.set('perfil', perfil.id);
+    url.hash = '';
+    return `
+      <article class="perfil-membro-card">
+        <div class="perfil-membro-identidade">
+          <img src="${escaparHTML(foto)}" alt="Foto de ${escaparHTML(nome)}" loading="lazy">
+          <h4>${escaparHTML(nome)}</h4>
+        </div>
+        <div class="perfil-info-grid">${criarCamposPerfilHTML(perfil)}</div>
+        <a class="btn-secundario btn-mini" href="${escaparHTML(url.href)}" target="_blank" rel="noopener noreferrer">Abrir perfil compartilhado</a>
+      </article>
+    `;
+  }).join('');
+}
+
+function renderizarPerfilCompartilhado(perfil) {
+  const container = document.getElementById('perfil-compartilhado');
+  const nome = perfil.nome || 'Perfil de membro';
+  const foto = perfil.foto_url || avatarPadrao(nome);
+  const campos = criarCamposPerfilHTML(perfil);
+  container.innerHTML = `
+    <div class="perfil-membro-identidade perfil-compartilhado-identidade">
+      <img src="${escaparHTML(foto)}" alt="Foto de ${escaparHTML(nome)}">
+      <h2>${escaparHTML(nome)}</h2>
+    </div>
+    ${campos
+      ? `<div class="perfil-info-grid">${campos}</div>`
+      : '<p class="texto-suave">Este membro não compartilhou outras informações do perfil com você.</p>'}
+  `;
 }
 
 function atualizarPlacar() {

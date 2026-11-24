@@ -32,6 +32,7 @@
     <div class="header-acoes">
       <div id="badge-usuario-logado" class="badge-usuario oculto"></div>
       <button type="button" id="btn-abrir-conta" class="btn-secundario">Entrar / Cadastrar</button>
+      <button type="button" id="btn-abrir-perfil" class="btn-secundario oculto">Meu perfil e membros</button>
       <button type="button" id="btn-sair" class="btn-perigo oculto">Sair</button>
     </div>
   </header>
@@ -134,6 +135,134 @@
         </form>
       </div>
     </section>
+
+    <section id="secao-perfil-membros" class="card perfil-membros-box oculto">
+      <div class="perfil-painel-cabecalho">
+        <div>
+          <h2>Meu perfil e membros</h2>
+          <p>Complete seu perfil quando quiser. Cada informação fica privada até você escolher quem pode vê-la.</p>
+        </div>
+        <button type="button" id="btn-fechar-perfil" class="btn-secundario">Fechar</button>
+      </div>
+      <div id="perfil-mensagem" class="mensagem-conta oculto" role="status" aria-live="polite"></div>
+
+      <form id="form-perfil-membro" class="form-perfil-membro">
+        <h3>Editar meu perfil</h3>
+        <p class="texto-suave">Seu e-mail, metas e registros pessoais de leitura não aparecem aqui e continuam privados.</p>
+
+        <div class="perfil-campo-compartilhavel">
+          <div>
+            <label for="perfil-nome">Nome ou apelido</label>
+            <input type="text" id="perfil-nome" maxlength="80" required>
+          </div>
+          <label for="perfil-vis-nome">Quem pode ver</label>
+          <select id="perfil-vis-nome" class="perfil-visibilidade"></select>
+        </div>
+
+        <div class="perfil-campo-compartilhavel">
+          <div>
+            <label for="perfil-foto">Foto de perfil</label>
+            <img id="perfil-foto-atual" class="perfil-foto-preview oculto" alt="Prévia da foto do perfil">
+            <input type="file" id="perfil-foto" accept="image/*">
+            <label class="opcao-compartilhamento">
+              <input type="checkbox" id="perfil-remover-foto">
+              Remover minha foto atual
+            </label>
+          </div>
+          <label for="perfil-vis-foto">Quem pode ver</label>
+          <select id="perfil-vis-foto" class="perfil-visibilidade"></select>
+        </div>
+
+        <div class="perfil-campo-compartilhavel">
+          <div>
+            <label for="perfil-bio">Apresentação</label>
+            <textarea id="perfil-bio" rows="3" maxlength="500" placeholder="Conte um pouco sobre você e sua relação com a leitura."></textarea>
+          </div>
+          <label for="perfil-vis-bio">Quem pode ver</label>
+          <select id="perfil-vis-bio" class="perfil-visibilidade"></select>
+        </div>
+
+        <div class="perfil-campo-compartilhavel">
+          <div>
+            <label for="perfil-cidade-estado">Cidade e estado (opcional)</label>
+            <input type="text" id="perfil-cidade-estado" maxlength="100" placeholder="Ex.: São Paulo, SP">
+          </div>
+          <label for="perfil-vis-cidade">Quem pode ver</label>
+          <select id="perfil-vis-cidade" class="perfil-visibilidade"></select>
+        </div>
+
+        <div class="perfil-campo-compartilhavel">
+          <div>
+            <label for="perfil-generos">Gêneros favoritos</label>
+            <input type="text" id="perfil-generos" maxlength="300" placeholder="Ex.: fantasia, romance, história">
+          </div>
+          <label for="perfil-vis-generos">Quem pode ver</label>
+          <select id="perfil-vis-generos" class="perfil-visibilidade"></select>
+        </div>
+
+        <div class="perfil-campo-compartilhavel">
+          <div>
+            <label for="perfil-livros">Livros favoritos</label>
+            <textarea id="perfil-livros" rows="2" maxlength="500"></textarea>
+          </div>
+          <label for="perfil-vis-livros">Quem pode ver</label>
+          <select id="perfil-vis-livros" class="perfil-visibilidade"></select>
+        </div>
+
+        <div class="perfil-campo-compartilhavel">
+          <div>
+            <label for="perfil-autores">Autores favoritos</label>
+            <input type="text" id="perfil-autores" maxlength="300">
+          </div>
+          <label for="perfil-vis-autores">Quem pode ver</label>
+          <select id="perfil-vis-autores" class="perfil-visibilidade"></select>
+        </div>
+
+        <div class="perfil-campo-compartilhavel">
+          <div>
+            <label for="perfil-link">Link pessoal ou rede social (opcional)</label>
+            <input type="url" id="perfil-link" maxlength="300" placeholder="https://...">
+          </div>
+          <label for="perfil-vis-link">Quem pode ver</label>
+          <select id="perfil-vis-link" class="perfil-visibilidade"></select>
+        </div>
+
+        <fieldset class="perfil-campo-personalizado">
+          <legend>Campo personalizado (opcional)</legend>
+          <div class="linha-dupla">
+            <div>
+              <label for="perfil-extra-nome">Nome do campo</label>
+              <input type="text" id="perfil-extra-nome" maxlength="60" placeholder="Ex.: Clube de leitura">
+            </div>
+            <div>
+              <label for="perfil-extra-valor">Informação</label>
+              <input type="text" id="perfil-extra-valor" maxlength="300">
+            </div>
+          </div>
+          <label for="perfil-vis-extra">Quem pode ver</label>
+          <select id="perfil-vis-extra" class="perfil-visibilidade"></select>
+        </fieldset>
+
+        <label class="opcao-compartilhamento">
+          <input type="checkbox" id="perfil-listar-diretorio">
+          Permitir que meu perfil apareça na busca de membros
+        </label>
+        <p class="texto-suave">A busca só pode ser usada por pessoas conectadas. Ela mostra apenas campos que você autorizou para membros ou para todos.</p>
+        <button type="submit" id="btn-salvar-perfil" class="btn-primario">Salvar meu perfil</button>
+      </form>
+
+      <section class="diretorio-perfis">
+        <h3>Encontrar membros</h3>
+        <form id="form-buscar-perfis" class="linha-busca-perfis">
+          <label class="sr-only" for="busca-perfis">Pesquisar membros por nome ou interesses</label>
+          <input type="search" id="busca-perfis" maxlength="80" placeholder="Pesquisar por nome, gênero, livro ou autor...">
+          <button type="submit" class="btn-secundario">Pesquisar</button>
+        </form>
+        <div id="lista-perfis-membros" class="lista-perfis-membros" aria-live="polite"></div>
+      </section>
+    </section>
+
+    <section id="perfil-compartilhado" class="card perfil-compartilhado oculto" aria-live="polite"></section>
 
     <!-- PAINEL DO ADMIN MASTER -->
     <section id="painel-admin" class="card admin-box oculto">

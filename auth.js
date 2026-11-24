@@ -87,6 +87,8 @@ function ativarModoRecuperacaoSenha() {
   estadoApp.recuperacaoSenhaAtiva = true;
   estadoApp.usuario = null;
   estadoApp.perfilUsuario = null;
+  estadoApp.detalhesPerfilUsuario = null;
+  estadoApp.perfis = {};
   estadoApp.ehAdminMaster = false;
   estadoApp.progressoLeitura = [];
   estadoApp.metasLeitura = null;
@@ -124,6 +126,8 @@ async function voltarAoLogin() {
     estadoApp.sessao = null;
     estadoApp.usuario = null;
     estadoApp.perfilUsuario = null;
+    estadoApp.detalhesPerfilUsuario = null;
+    estadoApp.perfis = {};
     estadoApp.progressoLeitura = [];
     estadoApp.metasLeitura = null;
     estadoApp.progressoPublicado = null;
@@ -140,14 +144,30 @@ async function voltarAoLogin() {
 }
 
 async function carregarPerfis() {
-  const { data, error } = await supabaseClient.from('perfis_clube').select('*');
+  estadoApp.perfis = {};
+  const ehAdmin = Boolean(
+    estadoApp.usuario &&
+    (estadoApp.usuario.email || '').toLowerCase() === EMAIL_ADMIN_MASTER.toLowerCase()
+  );
+  const nomeFuncao = ehAdmin ? 'clube_listar_perfis_admin' : 'clube_perfis_exibicao';
+  const { data, error } = await supabaseClient.rpc(nomeFuncao);
   if (error) {
-    console.warn('Erro ao carregar perfis:', error.message);
+    estadoApp.perfilUsuario = null;
+    console.error('Erro ao carregar perfis visíveis:', error.message);
+    return;
+  }
+
+  let perfisAssinados;
+  try {
+    perfisAssinados = await assinarFotosDePerfis(data || []);
+  } catch (erroFoto) {
+    estadoApp.perfilUsuario = null;
+    console.error('Erro ao carregar fotos de perfil autorizadas:', erroFoto);
     return;
   }
 
   const mapa = {};
-  (data || []).forEach(p => {
+  perfisAssinados.forEach(p => {
     mapa[p.id] = p;
   });
 
@@ -159,38 +179,325 @@ async function garantirPerfilUsuario(user, nomeInformado = '', fotoUrl = '') {
   if (!user) return null;
 
   const existente = estadoApp.perfis[user.id];
+  const { data: perfilAtual, error: erroPerfilAtual } = await supabaseClient
+    .from('perfis_clube')
+    .select('id, nome, foto_url, pode_publicar_resenha, criado_em')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (erroPerfilAtual) throw erroPerfilAtual;
+
   const nomeFinal =
     nomeInformado.trim() ||
     existente?.nome ||
+    perfilAtual?.nome ||
     user.user_metadata?.nome ||
     user.email?.split('@')[0] ||
     'Leitor(a)';
-  const fotoFinal = fotoUrl || existente?.foto_url || '';
+  const fotoFinal = fotoUrl || existente?.foto_path || perfilAtual?.foto_url || '';
   const isMaster = (user.email || '').toLowerCase() === EMAIL_ADMIN_MASTER.toLowerCase();
 
   const payload = {
     id: user.id,
-    email: user.email || '',
     nome: nomeFinal,
     foto_url: fotoFinal,
     pode_publicar_resenha: isMaster
       ? true
-      : Boolean(existente?.pode_publicar_resenha)
+      : Boolean(perfilAtual?.pode_publicar_resenha ?? existente?.pode_publicar_resenha)
   };
 
   const { data, error } = await supabaseClient
     .from('perfis_clube')
     .upsert(payload, { onConflict: 'id' })
-    .select()
+    .select('id, nome, foto_url, pode_publicar_resenha, criado_em')
     .single();
 
-  if (!error && data) {
-    estadoApp.perfis[user.id] = data;
-    estadoApp.perfilUsuario = data;
-    return data;
+  if (error) throw error;
+  if (!data) throw new Error('O perfil não foi retornado após salvar.');
+
+  const [perfilAssinado] = await assinarFotosDePerfis([data]);
+  estadoApp.perfis[user.id] = perfilAssinado;
+  estadoApp.perfilUsuario = perfilAssinado;
+  return perfilAssinado;
+}
+
+function mostrarMensagemPerfil(texto, tipo = 'informacao') {
+  const mensagem = document.getElementById('perfil-mensagem');
+  mensagem.textContent = texto;
+  mensagem.className = `mensagem-conta ${tipo}`;
+}
+
+function revogarPreviewFotoPerfil(preview) {
+  if (preview.dataset.previewUrl) {
+    URL.revokeObjectURL(preview.dataset.previewUrl);
+    delete preview.dataset.previewUrl;
+  }
+}
+
+function limparPainelPerfil() {
+  document.getElementById('form-perfil-membro').reset();
+  const preview = document.getElementById('perfil-foto-atual');
+  revogarPreviewFotoPerfil(preview);
+  preview.removeAttribute('src');
+  preview.classList.add('oculto');
+  document.getElementById('lista-perfis-membros').textContent = '';
+  document.getElementById('busca-perfis').value = '';
+  document.getElementById('perfil-mensagem').classList.add('oculto');
+}
+
+function configurarSeletoresVisibilidadePerfil() {
+  const opcoes = [
+    ['privado', 'Somente eu'],
+    ['membros', 'Membros conectados'],
+    ['publico', 'Todos os visitantes']
+  ];
+  document.querySelectorAll('.perfil-visibilidade').forEach(select => {
+    select.innerHTML = opcoes
+      .map(([valor, rotulo]) => `<option value="${valor}">${rotulo}</option>`)
+      .join('');
+  });
+}
+
+async function carregarMeuPerfil() {
+  if (!estadoApp.usuario) return;
+
+  const { data: perfil, error: erroPerfil } = await supabaseClient
+    .from('perfis_clube')
+    .select('id, nome, foto_url, pode_publicar_resenha, criado_em')
+    .eq('id', estadoApp.usuario.id)
+    .maybeSingle();
+  if (erroPerfil) {
+    mostrarMensagemPerfil(`Não foi possível carregar seu perfil: ${erroPerfil.message}`, 'erro');
+    return false;
+  }
+  if (!perfil) {
+    mostrarMensagemPerfil('Seu perfil ainda não foi criado. Saia e entre novamente para tentar de novo.', 'erro');
+    return false;
   }
 
-  return existente || payload;
+  const { data: detalhes, error: erroDetalhes } = await supabaseClient
+    .from('perfis_clube_detalhes')
+    .select('*')
+    .eq('usuario_id', estadoApp.usuario.id)
+    .maybeSingle();
+  if (erroDetalhes) {
+    mostrarMensagemPerfil(`Não foi possível carregar as informações privadas do perfil: ${erroDetalhes.message}`, 'erro');
+    return false;
+  }
+
+  let perfilAssinado;
+  try {
+    [perfilAssinado] = await assinarFotosDePerfis([perfil]);
+  } catch (errorFoto) {
+    mostrarMensagemPerfil(`Não foi possível carregar a foto do perfil: ${errorFoto.message}`, 'erro');
+    return false;
+  }
+  estadoApp.perfilUsuario = perfilAssinado;
+  const dados = detalhes || {};
+  const campos = {
+    'perfil-nome': perfil.nome || '',
+    'perfil-bio': dados.bio || '',
+    'perfil-cidade-estado': dados.cidade_estado || '',
+    'perfil-generos': dados.generos_favoritos || '',
+    'perfil-livros': dados.livros_favoritos || '',
+    'perfil-autores': dados.autores_favoritos || '',
+    'perfil-link': dados.link_perfil || '',
+    'perfil-extra-nome': dados.campo_personalizado_nome || '',
+    'perfil-extra-valor': dados.campo_personalizado_valor || ''
+  };
+  Object.entries(campos).forEach(([id, valor]) => {
+    document.getElementById(id).value = valor;
+  });
+
+  const visibilidades = {
+    'perfil-vis-nome': 'visibilidade_nome',
+    'perfil-vis-foto': 'visibilidade_foto',
+    'perfil-vis-bio': 'visibilidade_bio',
+    'perfil-vis-cidade': 'visibilidade_cidade_estado',
+    'perfil-vis-generos': 'visibilidade_generos_favoritos',
+    'perfil-vis-livros': 'visibilidade_livros_favoritos',
+    'perfil-vis-autores': 'visibilidade_autores_favoritos',
+    'perfil-vis-link': 'visibilidade_link_perfil',
+    'perfil-vis-extra': 'visibilidade_campo_personalizado'
+  };
+  Object.entries(visibilidades).forEach(([id, campo]) => {
+    document.getElementById(id).value = dados[campo] || 'privado';
+  });
+
+  document.getElementById('perfil-listar-diretorio').checked = Boolean(dados.listar_no_diretorio);
+  document.getElementById('perfil-foto').value = '';
+  document.getElementById('perfil-remover-foto').checked = false;
+  const preview = document.getElementById('perfil-foto-atual');
+  revogarPreviewFotoPerfil(preview);
+  preview.src = perfilAssinado.foto_url || '';
+  preview.classList.toggle('oculto', !perfilAssinado.foto_url);
+  return true;
+}
+
+async function abrirPainelPerfil() {
+  if (!estadoApp.usuario) {
+    return mostrarMensagemPerfil('Entre na sua conta para editar o perfil e pesquisar membros.', 'erro');
+  }
+  document.getElementById('secao-perfil-membros').classList.remove('oculto');
+  await carregarMeuPerfil();
+  await buscarPerfis();
+}
+
+async function salvarMeuPerfil(event) {
+  event.preventDefault();
+  if (!estadoApp.usuario) {
+    return mostrarMensagemPerfil('Entre na sua conta para salvar alterações no perfil.', 'erro');
+  }
+
+  const botao = document.getElementById('btn-salvar-perfil');
+  const fotoArquivo = document.getElementById('perfil-foto').files[0];
+  const removerFoto = document.getElementById('perfil-remover-foto').checked;
+  const fotoAnterior = estadoApp.perfilUsuario?.foto_path || '';
+  const visibilidadeFoto = document.getElementById('perfil-vis-foto').value;
+  const listarNoDiretorio = document.getElementById('perfil-listar-diretorio').checked;
+  let fotoNova = fotoAnterior;
+  let fotoEnviada = '';
+  let avisoFoto = '';
+
+  if (listarNoDiretorio && document.getElementById('perfil-vis-nome').value === 'privado') {
+    return mostrarMensagemPerfil('Para aparecer na busca, seu nome precisa estar visível ao menos para os membros conectados.', 'erro');
+  }
+  if (fotoArquivo && !fotoArquivo.type.startsWith('image/')) {
+    return mostrarMensagemPerfil('Selecione um arquivo de imagem válido.', 'erro');
+  }
+  if (fotoArquivo && fotoArquivo.size > 10 * 1024 * 1024) {
+    return mostrarMensagemPerfil('A foto deve ter no máximo 10 MB antes da compressão.', 'erro');
+  }
+  if (fotoArquivo && removerFoto) {
+    return mostrarMensagemPerfil('Escolha uma foto nova ou marque a remoção, não as duas opções.', 'erro');
+  }
+  if (fotoAnterior && /^https?:\/\//i.test(fotoAnterior) && visibilidadeFoto !== 'publico' && !fotoArquivo && !removerFoto) {
+    return mostrarMensagemPerfil(
+      'Sua foto atual está hospedada em um endereço público antigo. Envie-a novamente ou remova-a antes de restringir quem pode vê-la.',
+      'erro'
+    );
+  }
+  if (removerFoto) fotoNova = '';
+
+  botao.disabled = true;
+  botao.textContent = 'Salvando...';
+  try {
+    if (fotoArquivo) {
+      fotoEnviada = await fazerUploadFotoPerfilComprimida(fotoArquivo, estadoApp.usuario.id);
+      fotoNova = fotoEnviada;
+    }
+
+    const parametros = {
+      p_nome: document.getElementById('perfil-nome').value.trim(),
+      p_foto_url: fotoNova,
+      p_bio: document.getElementById('perfil-bio').value.trim(),
+      p_cidade_estado: document.getElementById('perfil-cidade-estado').value.trim(),
+      p_generos_favoritos: document.getElementById('perfil-generos').value.trim(),
+      p_livros_favoritos: document.getElementById('perfil-livros').value.trim(),
+      p_autores_favoritos: document.getElementById('perfil-autores').value.trim(),
+      p_link_perfil: document.getElementById('perfil-link').value.trim(),
+      p_campo_personalizado_nome: document.getElementById('perfil-extra-nome').value.trim(),
+      p_campo_personalizado_valor: document.getElementById('perfil-extra-valor').value.trim(),
+      p_listar_no_diretorio: listarNoDiretorio,
+      p_visibilidade_nome: document.getElementById('perfil-vis-nome').value,
+      p_visibilidade_foto: visibilidadeFoto,
+      p_visibilidade_bio: document.getElementById('perfil-vis-bio').value,
+      p_visibilidade_cidade_estado: document.getElementById('perfil-vis-cidade').value,
+      p_visibilidade_generos_favoritos: document.getElementById('perfil-vis-generos').value,
+      p_visibilidade_livros_favoritos: document.getElementById('perfil-vis-livros').value,
+      p_visibilidade_autores_favoritos: document.getElementById('perfil-vis-autores').value,
+      p_visibilidade_link_perfil: document.getElementById('perfil-vis-link').value,
+      p_visibilidade_campo_personalizado: document.getElementById('perfil-vis-extra').value
+    };
+    const { error } = await supabaseClient.rpc('clube_salvar_meu_perfil', parametros);
+    if (error) throw error;
+  } catch (error) {
+    if (fotoEnviada) {
+      try {
+        await removerFotoPerfilAntiga(fotoEnviada);
+      } catch (erroRemocao) {
+        console.error('Não foi possível limpar a foto enviada após falha ao salvar o perfil:', erroRemocao);
+      }
+    }
+    mostrarMensagemPerfil(`Não foi possível salvar o perfil: ${error.message}`, 'erro');
+    botao.disabled = false;
+    botao.textContent = 'Salvar meu perfil';
+    return;
+  }
+
+  if (fotoAnterior && fotoAnterior !== fotoNova) {
+    try {
+      const removida = await removerFotoPerfilAntiga(fotoAnterior);
+      if (!removida) avisoFoto = ' A foto antiga é hospedada fora do site e continua sujeita às regras desse serviço.';
+    } catch (erroRemocao) {
+      avisoFoto = ` Não foi possível remover a foto antiga do armazenamento: ${erroRemocao.message}`;
+    }
+  }
+
+  try {
+    await carregarPerfis();
+    await carregarComunidade();
+    await carregarMetricasGrupo();
+    if (!await carregarMeuPerfil()) {
+      throw new Error('Não foi possível recarregar os dados do perfil.');
+    }
+    await buscarPerfis();
+    atualizarInterfaceSessao();
+    mostrarMensagemPerfil(`Perfil salvo. As opções de privacidade foram aplicadas.${avisoFoto}`, avisoFoto ? 'informacao' : 'sucesso');
+  } catch (errorAtualizacao) {
+    mostrarMensagemPerfil(
+      `Perfil salvo, mas não foi possível atualizar todas as informações na tela: ${errorAtualizacao.message}${avisoFoto}`,
+      'informacao'
+    );
+  } finally {
+    botao.disabled = false;
+    botao.textContent = 'Salvar meu perfil';
+  }
+}
+
+async function buscarPerfis() {
+  if (!estadoApp.usuario) return;
+  const termo = document.getElementById('busca-perfis').value.trim();
+  const { data, error } = await supabaseClient.rpc('clube_buscar_perfis', { p_busca: termo });
+  if (error) {
+    renderizarDiretorioPerfis([], `Não foi possível pesquisar perfis: ${error.message}`);
+    return;
+  }
+  try {
+    const perfisAssinados = await assinarFotosDePerfis(data || []);
+    renderizarDiretorioPerfis(perfisAssinados);
+  } catch (errorFoto) {
+    renderizarDiretorioPerfis([], `Não foi possível carregar as fotos dos perfis: ${errorFoto.message}`);
+  }
+}
+
+async function carregarPerfilCompartilhadoSolicitado() {
+  const usuarioId = new URLSearchParams(window.location.search).get('perfil');
+  if (!usuarioId) return;
+
+  const container = document.getElementById('perfil-compartilhado');
+  container.classList.remove('oculto');
+  container.textContent = 'Carregando perfil...';
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(usuarioId)) {
+    container.textContent = 'O link do perfil não é válido.';
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc('clube_perfil_detalhado', { p_usuario_id: usuarioId });
+  if (error) {
+    container.textContent = `Não foi possível carregar este perfil: ${error.message}`;
+    return;
+  }
+  const perfil = (data || [])[0];
+  if (!perfil) {
+    container.textContent = 'Este perfil não está disponível ou não compartilha informações com você.';
+    return;
+  }
+  try {
+    const [perfilAssinado] = await assinarFotosDePerfis([perfil]);
+    renderizarPerfilCompartilhado(perfilAssinado);
+  } catch (errorFoto) {
+    container.textContent = `Não foi possível carregar a foto do perfil: ${errorFoto.message}`;
+  }
 }
 
 function podeUsuarioPublicarResenha() {
@@ -201,6 +508,8 @@ function atualizarInterfaceSessao() {
   const painelAdmin = document.getElementById('painel-admin');
   const secaoContaUsuario = document.getElementById('secao-conta-usuario');
   const btnAbrirConta = document.getElementById('btn-abrir-conta');
+  const btnAbrirPerfil = document.getElementById('btn-abrir-perfil');
+  const secaoPerfilMembros = document.getElementById('secao-perfil-membros');
   const btnSair = document.getElementById('btn-sair');
   const badgeUsuario = document.getElementById('badge-usuario-logado');
 
@@ -222,6 +531,7 @@ function atualizarInterfaceSessao() {
   if (estadoApp.usuario) {
     secaoContaUsuario.classList.add('oculto');
     btnAbrirConta.classList.add('oculto');
+    btnAbrirPerfil.classList.remove('oculto');
     btnSair.classList.remove('oculto');
 
     const nomeExibido = estadoApp.perfilUsuario?.nome || estadoApp.usuario.email;
@@ -234,6 +544,9 @@ function atualizarInterfaceSessao() {
   } else {
     badgeUsuario.classList.add('oculto');
     btnAbrirConta.classList.remove('oculto');
+    btnAbrirPerfil.classList.add('oculto');
+    secaoPerfilMembros.classList.add('oculto');
+    limparPainelPerfil();
     btnSair.classList.add('oculto');
   }
 
@@ -336,7 +649,7 @@ async function cadastrarMembro({ nome, email, password, confirmarSenha, fotoArqu
 
     let fotoUrl = '';
     if (fotoArquivo && data.session) {
-      fotoUrl = await fazerUploadFotoComprimida(fotoArquivo, 'perfil');
+      fotoUrl = await fazerUploadFotoPerfilComprimida(fotoArquivo, data.user.id);
     }
 
     if (data.user && data.session) {
@@ -457,6 +770,8 @@ async function sairDaConta() {
   estadoApp.sessao = null;
   estadoApp.usuario = null;
   estadoApp.perfilUsuario = null;
+  estadoApp.detalhesPerfilUsuario = null;
+  estadoApp.perfis = {};
   estadoApp.progressoLeitura = [];
   estadoApp.metasLeitura = null;
   estadoApp.progressoPublicado = null;
@@ -467,6 +782,9 @@ async function sairDaConta() {
   document.getElementById('progresso-incluir-nome').checked = false;
   document.getElementById('progresso-incluir-foto').checked = false;
   document.getElementById('progresso-publicado-site').checked = false;
+  await carregarPerfis();
+  estadoApp.cartoesProgressoPublicos = [];
+  await carregarMetricasGrupo();
   atualizarInterfaceSessao();
 }
 
@@ -495,14 +813,12 @@ window.editarPerfilMembro = async (userId) => {
   const perfil = estadoApp.perfis[userId];
   if (!perfil) return alert('Selecione um perfil para editar.');
 
-  const nome = prompt('Nome ou apelido público:', perfil.nome || '');
+  const nome = prompt('Nome ou apelido do membro:', perfil.nome || '');
   if (nome === null) return;
-  const fotoUrl = prompt('URL da foto de perfil (deixe vazio para usar o avatar padrão):', perfil.foto_url || '');
-  if (fotoUrl === null) return;
 
-  const dados = { nome: nome.trim(), foto_url: fotoUrl.trim() };
+  const dados = { nome: nome.trim() };
   if (!dados.nome) return alert('O nome ou apelido não pode ficar vazio.');
-  if (dados.nome === perfil.nome && dados.foto_url === (perfil.foto_url || '')) return;
+  if (dados.nome === perfil.nome) return;
   if (!confirm(`Salvar as alterações do perfil de ${perfil.nome}?`)) return;
 
   const { error } = await supabaseClient

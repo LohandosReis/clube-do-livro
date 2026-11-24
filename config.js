@@ -74,6 +74,7 @@ const estadoApp = {
   sessao: null,
   usuario: null,
   perfilUsuario: null,
+  detalhesPerfilUsuario: null,
   ehAdminMaster: false,
   recuperacaoSenhaAtiva: false,
   fotosEmEdicao: []
@@ -135,4 +136,65 @@ async function fazerUploadFotoComprimida(file, prefixo = 'foto') {
 
   const { data: urlData } = supabaseClient.storage.from('fotos-clube').getPublicUrl(nomeArquivo);
   return urlData?.publicUrl || '';
+}
+
+async function fazerUploadFotoPerfilComprimida(file, usuarioId) {
+  const opcoes = { maxSizeMB: 0.3, maxWidthOrHeight: 1280, useWebWorker: true };
+  const arquivoComprimido = await imageCompression(file, opcoes);
+  const nomeArquivo = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const sufixo = Math.random().toString(36).slice(2, 8);
+  const caminho = `${usuarioId}/${Date.now()}-${sufixo}-${nomeArquivo}`;
+
+  const { error } = await supabaseClient
+    .storage
+    .from('fotos-perfis-clube')
+    .upload(caminho, arquivoComprimido);
+  if (error) throw error;
+
+  return caminho;
+}
+
+async function assinarFotosDePerfis(perfis) {
+  const registros = perfis.map(perfil => ({
+    ...perfil,
+    foto_path: perfil.foto_url || ''
+  }));
+  const caminhos = Array.from(new Set(registros
+    .map(perfil => perfil.foto_path)
+    .filter(caminho => caminho && !/^https?:\/\//i.test(caminho))));
+
+  if (!caminhos.length) return registros;
+
+  const { data, error } = await supabaseClient
+    .storage
+    .from('fotos-perfis-clube')
+    .createSignedUrls(caminhos, 3600);
+  if (error) throw error;
+
+  const urls = new Map((data?.signedUrls || []).map(item => [item.path, item.signedUrl]));
+  return registros.map(perfil => ({
+    ...perfil,
+    foto_url: /^https?:\/\//i.test(perfil.foto_path)
+      ? perfil.foto_path
+      : (urls.get(perfil.foto_path) || '')
+  }));
+}
+
+async function removerFotoPerfilAntiga(fotoPath) {
+  if (!fotoPath) return true;
+
+  let bucket = 'fotos-perfis-clube';
+  let caminho = fotoPath;
+  if (/^https?:\/\//i.test(fotoPath)) {
+    const marcador = '/storage/v1/object/public/fotos-clube/';
+    const url = new URL(fotoPath);
+    const indice = url.pathname.indexOf(marcador);
+    if (indice < 0) return false;
+    bucket = 'fotos-clube';
+    caminho = decodeURIComponent(url.pathname.slice(indice + marcador.length));
+  }
+
+  const { error } = await supabaseClient.storage.from(bucket).remove([caminho]);
+  if (error) throw error;
+  return true;
 }

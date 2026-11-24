@@ -313,6 +313,41 @@ function registrarEventos() {
     document.getElementById('secao-conta-usuario').classList.add('oculto');
   };
 
+  document.getElementById('btn-abrir-perfil').onclick = abrirPainelPerfil;
+  document.getElementById('btn-fechar-perfil').onclick = () => {
+    document.getElementById('secao-perfil-membros').classList.add('oculto');
+  };
+  configurarSeletoresVisibilidadePerfil();
+  document.getElementById('form-perfil-membro').onsubmit = salvarMeuPerfil;
+  document.getElementById('form-buscar-perfis').onsubmit = async (event) => {
+    event.preventDefault();
+    await buscarPerfis();
+  };
+  document.getElementById('perfil-foto').addEventListener('change', event => {
+    const arquivo = event.target.files[0];
+    if (!arquivo) return;
+    document.getElementById('perfil-remover-foto').checked = false;
+    const preview = document.getElementById('perfil-foto-atual');
+    revogarPreviewFotoPerfil(preview);
+    preview.dataset.previewUrl = URL.createObjectURL(arquivo);
+    preview.src = preview.dataset.previewUrl;
+    preview.classList.remove('oculto');
+  });
+  document.getElementById('perfil-remover-foto').addEventListener('change', event => {
+    const inputFoto = document.getElementById('perfil-foto');
+    const preview = document.getElementById('perfil-foto-atual');
+    revogarPreviewFotoPerfil(preview);
+    if (event.target.checked) {
+      inputFoto.value = '';
+      preview.removeAttribute('src');
+      preview.classList.add('oculto');
+    } else {
+      const fotoAtual = estadoApp.perfilUsuario?.foto_url || '';
+      preview.src = fotoAtual;
+      preview.classList.toggle('oculto', !fotoAtual);
+    }
+  });
+
   document.getElementById('tab-user-login').onclick = () => {
     document.getElementById('conta-mensagem').classList.add('oculto');
     document.getElementById('conta-mensagem').textContent = '';
@@ -612,4 +647,7 @@ montarSeletoresDeGenero();
 registrarEventos();
 iniciarMonitoramentoRecuperacaoSenha();
 carregarGuia();
-carregarEncontros().then(verificarSessao);
+carregarEncontros().then(async () => {
+  await verificarSessao();
+  await carregarPerfilCompartilhadoSolicitado();
+});
