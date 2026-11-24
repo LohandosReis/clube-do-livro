@@ -191,7 +191,7 @@ Não há dependências de npm declaradas e não é necessário executar `npm ins
 | `index.html` | Estrutura da página, formulários, seções e carregamento dos scripts. |
 | `style.css` | Tema visual, componentes, layout responsivo e animações. |
 | `config.js` | Cliente Supabase, administrador mestre, gêneros, estado global e funções utilitárias. |
-| `auth.js` | Perfil, sessão, login, cadastro, logout e interface de autenticação. |
+| `auth.js` | Perfil, sessão, login, cadastro, validação de senha, recuperação de senha, logout e interface de autenticação. |
 | `livros-api.js` | Consultas às APIs externas e preenchimento do formulário administrativo. |
 | `comunidade.js` | Avaliações, comentários, indicações e votos da comunidade. |
 | `ui.js` | Gêneros, fotos, usuários administrativos, placar e renderização da interface. |
@@ -212,7 +212,7 @@ APIs externas podem aplicar limites ou ficar temporariamente indisponíveis.
 
 ### Executar localmente
 
-Como não existem etapas de build, abra `index.html` diretamente no navegador ou use um servidor HTTP local.
+Como não existem etapas de build, abra `index.html` diretamente no navegador ou use um servidor HTTP local. Use um endereço HTTP/HTTPS para cadastro com confirmação por e-mail e recuperação de senha; esses fluxos de autenticação não funcionam corretamente em `file://`.
 
 Exemplo com Python:
 
@@ -229,7 +229,7 @@ Exemplo com Node.js usando `npx`:
 npx serve .
 ```
 
-Um servidor local é recomendado, pois evita algumas diferenças de acesso e facilita o uso de recursos do navegador.
+Um servidor local é recomendado, pois evita algumas diferenças de acesso e facilita o uso de recursos do navegador. Para testar os links de autenticação, use o endereço HTTP local, por exemplo `http://localhost:5500`.
 
 ### Publicar
 
@@ -261,10 +261,13 @@ No painel do Supabase:
 1. Abra `Authentication`.
 2. Confira a configuração de provedores.
 3. Habilite `Email/Password`.
-4. Configure o endereço de confirmação de cadastro conforme o domínio utilizado.
-5. Em produção, configure os URLs permitidos de redirecionamento.
+4. Configure a confirmação de e-mail conforme a política desejada para o clube e revise o template de confirmação.
+5. Em `URL Configuration`, configure o `Site URL` do site publicado e adicione à lista `Redirect URLs` todos os endereços usados para confirmação e recuperação.
+6. Adapte a política de senha do Supabase para aceitar senhas com pelo menos 8 caracteres.
 
-Por padrão, o fluxo aceita login por e-mail e senha.
+O cadastro e a redefinição redirecionam para o endereço atual do site, incluindo o caminho da página. Cadastre cada endereço exato necessário, por exemplo `http://localhost:5500/` para desenvolvimento e `https://seu-dominio.example/` para produção (ou o caminho real onde `index.html` está hospedado). Não use `file://`. Se o Supabase rejeitar o retorno com erro de URL não permitida, confira esses valores em `Authentication > URL Configuration`.
+
+O formulário exige pelo menos 8 caracteres, uma letra maiúscula, uma minúscula e um número. Configure no Supabase um comprimento mínimo compatível e os critérios adicionais disponíveis no painel. A validação do formulário melhora a experiência, mas, se o Supabase não aplicar os mesmos critérios no servidor, outros clientes ainda poderão enviar senhas diferentes.
 
 ### 3. Criar o primeiro usuário administrador
 
@@ -516,12 +519,22 @@ Os registros de metas e progresso pessoal continuam privados para cada membro, i
 
 1. Clicar em **Entrar / Cadastrar**.
 2. Escolher **Criar Conta de Membro**.
-3. Informar nome, e-mail e senha.
-4. Opcionalmente enviar uma foto.
-5. Aguardar confirmação de e-mail, conforme configuração do Supabase.
-6. Entrar com as credenciais.
+3. Informar nome, e-mail, senha e confirmação da senha.
+4. Usar a indicação de força e o botão **Mostrar/Ocultar** para conferir a senha.
+5. Opcionalmente enviar uma foto.
+6. Aguardar confirmação de e-mail, conforme configuração do Supabase.
+7. Entrar com as credenciais.
 
 O perfil é criado ou atualizado em `perfis_clube`.
+
+### Recuperar ou alterar a senha
+
+1. Na tela de login, informar o e-mail da conta e clicar em **Esqueci minha senha**.
+2. Abrir o link enviado pelo Supabase no mesmo site configurado na lista `Redirect URLs`.
+3. Definir e confirmar uma senha que atenda aos requisitos descritos acima.
+4. Salvar. A sessão será iniciada com a nova senha.
+
+A mensagem após solicitar o link é genérica para não revelar se um endereço está cadastrado. Se o link expirou, use **Voltar ao login** e solicite outro. A recuperação depende dos templates e do serviço de e-mail configurados no projeto Supabase.
 
 ### Login único
 
@@ -773,7 +786,7 @@ O script fornecido pode ser executado novamente com segurança para os objetos c
 - APIs públicas podem responder lentamente ou falhar.
 - `confirm()` e `alert()` do navegador são usados para confirmações e mensagens.
 - O HTML de resenha e comentário é interpretado como texto simples por meio de escape.
-- O cadastro por e-mail depende da configuração de confirmação do Supabase.
+- Cadastro, confirmação e recuperação por e-mail dependem dos provedores, templates, URLs permitidos e serviço de e-mail do Supabase.
 
 ## Solução de problemas
 
@@ -799,6 +812,21 @@ Confira:
 ### Usuário não aparece no painel
 
 O perfil é criado em `perfis_clube` durante cadastro ou login. Confira se o usuário possui um perfil e se a política de inserção permite a operação.
+
+### Link de confirmação ou recuperação não retorna ao site
+
+- Abra o site por HTTP/HTTPS, não por `file://`.
+- Confira se o endereço completo usado pelo site está em `Authentication > URL Configuration > Redirect URLs`.
+- Confirme o `Site URL`, os templates de e-mail e o envio de mensagens do projeto Supabase.
+- Para desenvolvimento local, permita o endereço e a porta usados pelo servidor local, por exemplo `http://localhost:5500/`.
+
+### E-mail de confirmação ou redefinição não chega
+
+Confira a pasta de spam, o template do e-mail, os limites de envio e a configuração do provedor de e-mail do projeto Supabase. O aplicativo não envia essas mensagens diretamente.
+
+### Senha rejeitada
+
+Use pelo menos 8 caracteres, com uma letra maiúscula, uma minúscula e um número. Se a senha atende a esses requisitos e ainda é recusada, verifique a política configurada em `Authentication` no Supabase.
 
 ### Usuário não consegue publicar resenha
 

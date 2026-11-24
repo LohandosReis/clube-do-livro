@@ -75,6 +75,7 @@ const estadoApp = {
   usuario: null,
   perfilUsuario: null,
   ehAdminMaster: false,
+  recuperacaoSenhaAtiva: false,
   fotosEmEdicao: []
 };
 

@@ -307,12 +307,16 @@ function registrarEventos() {
   // Conta e Admin Master
   document.getElementById('btn-abrir-conta').onclick = () => {
     document.getElementById('secao-conta-usuario').classList.remove('oculto');
+    if (estadoApp.recuperacaoSenhaAtiva) ativarModoRecuperacaoSenha();
   };
   document.getElementById('btn-fechar-conta').onclick = () => {
     document.getElementById('secao-conta-usuario').classList.add('oculto');
   };
 
   document.getElementById('tab-user-login').onclick = () => {
+    document.getElementById('conta-mensagem').classList.add('oculto');
+    document.getElementById('conta-mensagem').textContent = '';
+    document.getElementById('form-user-redefinir-box').classList.add('oculto');
     document.getElementById('form-user-login-box').classList.remove('oculto');
     document.getElementById('form-user-cadastro-box').classList.add('oculto');
     document.getElementById('tab-user-login').className = 'btn-primario';
@@ -320,28 +324,89 @@ function registrarEventos() {
   };
 
   document.getElementById('tab-user-cadastro').onclick = () => {
+    document.getElementById('conta-mensagem').classList.add('oculto');
+    document.getElementById('conta-mensagem').textContent = '';
+    document.getElementById('form-user-redefinir-box').classList.add('oculto');
     document.getElementById('form-user-cadastro-box').classList.remove('oculto');
     document.getElementById('form-user-login-box').classList.add('oculto');
     document.getElementById('tab-user-cadastro').className = 'btn-primario';
     document.getElementById('tab-user-login').className = 'btn-secundario';
   };
 
-  document.getElementById('btn-user-entrar').onclick = () => {
-    entrarComoMembro(
+  document.getElementById('form-user-login').onsubmit = async (event) => {
+    event.preventDefault();
+    await entrarComoMembro(
       document.getElementById('user-login-email').value.trim(),
       document.getElementById('user-login-senha').value
     );
   };
 
-  document.getElementById('btn-user-cadastrar').onclick = () => {
-    cadastrarMembro({
+  document.getElementById('form-user-cadastro').onsubmit = async (event) => {
+    event.preventDefault();
+    await cadastrarMembro({
       nome: document.getElementById('user-cad-nome').value.trim(),
       email: document.getElementById('user-cad-email').value.trim(),
       password: document.getElementById('user-cad-senha').value,
+      confirmarSenha: document.getElementById('user-cad-confirma-senha').value,
       fotoArquivo: document.getElementById('user-cad-foto').files[0],
       botao: document.getElementById('btn-user-cadastrar')
     });
   };
+
+  document.getElementById('btn-esqueceu-senha').onclick = () => {
+    solicitarRedefinicaoSenha(document.getElementById('user-login-email').value.trim());
+  };
+  document.getElementById('btn-voltar-login').onclick = voltarAoLogin;
+
+  document.getElementById('form-user-redefinir-senha').onsubmit = async (event) => {
+    event.preventDefault();
+    await redefinirSenha(
+      document.getElementById('user-redefinir-senha').value,
+      document.getElementById('user-redefinir-confirma-senha').value,
+      document.getElementById('btn-user-redefinir-senha')
+    );
+  };
+
+  document.querySelectorAll('[data-toggle-password]').forEach(botao => {
+    botao.onclick = () => {
+      const campo = document.getElementById(botao.dataset.togglePassword);
+      const mostrar = campo.type === 'password';
+      campo.type = mostrar ? 'text' : 'password';
+      botao.textContent = mostrar ? 'Ocultar' : 'Mostrar';
+      botao.setAttribute('aria-label', `${mostrar ? 'Ocultar' : 'Mostrar'} senha`);
+      botao.setAttribute('aria-pressed', String(mostrar));
+    };
+  });
+
+  document.getElementById('user-cad-senha').addEventListener('input', () => {
+    atualizarIndicadorForcaSenha('user-cad-senha', 'user-cad-senha-progresso', 'user-cad-senha-feedback');
+    document.getElementById('user-cad-confirma-senha').dispatchEvent(new Event('input'));
+  });
+  document.getElementById('user-redefinir-senha').addEventListener('input', () => {
+    atualizarIndicadorForcaSenha('user-redefinir-senha', 'user-redefinir-senha-progresso', 'user-redefinir-senha-feedback');
+    document.getElementById('user-redefinir-confirma-senha').dispatchEvent(new Event('input'));
+  });
+
+  [
+    ['user-cad-senha', 'user-cad-confirma-senha', 'user-cad-confirma-feedback'],
+    ['user-redefinir-senha', 'user-redefinir-confirma-senha', 'user-redefinir-confirma-feedback']
+  ].forEach(([senhaId, confirmacaoId, feedbackId]) => {
+    const senha = document.getElementById(senhaId);
+    const confirmacao = document.getElementById(confirmacaoId);
+    confirmacao.addEventListener('input', () => {
+      const feedback = document.getElementById(feedbackId);
+      if (!confirmacao.value) {
+        feedback.textContent = '';
+        feedback.className = 'feedback-campo';
+      } else if (confirmacao.value === senha.value) {
+        feedback.textContent = 'As senhas coincidem.';
+        feedback.className = 'feedback-campo sucesso';
+      } else {
+        feedback.textContent = 'As senhas não coincidem.';
+        feedback.className = 'feedback-campo erro';
+      }
+    });
+  });
 
   document.getElementById('btn-sair').onclick = sairDaConta;
 
@@ -545,5 +610,6 @@ function registrarEventos() {
 
 montarSeletoresDeGenero();
 registrarEventos();
+iniciarMonitoramentoRecuperacaoSenha();
 carregarGuia();
 carregarEncontros().then(verificarSessao);
