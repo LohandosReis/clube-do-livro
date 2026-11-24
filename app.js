@@ -239,6 +239,7 @@ async function carregarEncontros() {
   estadoApp.encontros = data || [];
   await carregarPerfis();
   await carregarComunidade();
+  await carregarProgressoLeitura();
   atualizarPlacar();
   renderizarTela();
 }
@@ -282,7 +283,6 @@ function registrarEventos() {
 
   // Conta e Admin Master
   document.getElementById('btn-abrir-conta').onclick = () => {
-    document.getElementById('secao-login').classList.add('oculto');
     document.getElementById('secao-conta-usuario').classList.remove('oculto');
   };
   document.getElementById('btn-fechar-conta').onclick = () => {
@@ -320,22 +320,23 @@ function registrarEventos() {
     });
   };
 
-  document.getElementById('btn-abrir-login').onclick = () => {
-    document.getElementById('secao-conta-usuario').classList.add('oculto');
-    document.getElementById('secao-login').classList.remove('oculto');
-  };
-  document.getElementById('btn-fechar-login').onclick = () => {
-    document.getElementById('secao-login').classList.add('oculto');
-  };
-
-  document.getElementById('btn-entrar').onclick = () => {
-    entrarComoAdminMaster(
-      document.getElementById('admin-email').value.trim(),
-      document.getElementById('admin-senha').value
-    );
-  };
-
   document.getElementById('btn-sair').onclick = sairDaConta;
+
+  document.getElementById('form-progresso-leitura').onsubmit = async (event) => {
+    event.preventDefault();
+    const botao = document.getElementById('btn-salvar-progresso');
+    botao.disabled = true;
+    botao.textContent = 'Registrando...';
+    try {
+      await salvarProgressoLeitura(
+        document.getElementById('progresso-data').value,
+        document.getElementById('progresso-paginas').value
+      );
+    } finally {
+      botao.disabled = false;
+      botao.textContent = 'Registrar leitura';
+    }
+  };
 
   // Abas do Painel Admin
   document.getElementById('tab-btn-livro').onclick = () => ativarAbaAdmin('livro');

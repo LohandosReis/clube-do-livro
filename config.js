@@ -64,6 +64,7 @@ const estadoApp = {
   comentarios: [],
   indicacoes: [],
   votos: [],
+  progressoLeitura: [],
   sessao: null,
   usuario: null,
   perfilUsuario: null,

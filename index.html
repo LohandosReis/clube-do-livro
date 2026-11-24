@@ -32,7 +32,6 @@
     <div class="header-acoes">
       <div id="badge-usuario-logado" class="badge-usuario oculto"></div>
       <button type="button" id="btn-abrir-conta" class="btn-secundario">Entrar / Cadastrar</button>
-      <button type="button" id="btn-abrir-login" class="btn-secundario">Admin Master</button>
       <button type="button" id="btn-sair" class="btn-perigo oculto">Sair</button>
     </div>
   </header>
@@ -63,7 +62,7 @@
       </div>
 
       <div id="form-user-login-box" style="margin-top:1rem;">
-        <h2>Entrar como Membro do Clube</h2>
+        <h2>Entrar no Clube do Livro</h2>
         <input type="email" id="user-login-email" placeholder="Seu e-mail">
         <input type="password" id="user-login-senha" placeholder="Sua senha">
         <button type="button" id="btn-user-entrar" class="btn-primario">Entrar</button>
@@ -78,15 +77,6 @@
         <input type="file" id="user-cad-foto" accept="image/*">
         <button type="button" id="btn-user-cadastrar" class="btn-primario">Criar Conta</button>
       </div>
-    </section>
-
-    <!-- LOGIN DO ADMIN MASTER -->
-    <section id="secao-login" class="card oculto">
-      <h2>Login do Admin Master</h2>
-      <input type="email" id="admin-email" placeholder="E-mail do Admin Master">
-      <input type="password" id="admin-senha" placeholder="Senha">
-      <button type="button" id="btn-entrar" class="btn-primario">Entrar</button>
-      <button type="button" id="btn-fechar-login" class="btn-secundario">Cancelar</button>
     </section>
 
     <!-- PAINEL DO ADMIN MASTER -->
@@ -202,6 +192,34 @@
     <section id="destaque-atual" class="destaque-box">
       <h2>📖 Leitura Atual & Próximo Encontro</h2>
       <div id="conteudo-atual">Carregando...</div>
+    </section>
+
+    <!-- ACOMPANHAMENTO PESSOAL DE LEITURA -->
+    <section id="acompanhamento-leitura" class="card acompanhamento-box oculto">
+      <div class="acompanhamento-cabecalho">
+        <div>
+          <h2 style="margin:0;">📊 Meu acompanhamento de leitura</h2>
+          <small id="acompanhamento-livro">Entre na sua conta para registrar seu progresso.</small>
+        </div>
+      </div>
+
+      <form id="form-progresso-leitura" class="form-progresso-leitura">
+        <div class="linha-dupla">
+          <div>
+            <label for="progresso-data">Data da leitura:</label>
+            <input type="date" id="progresso-data" required>
+          </div>
+          <div>
+            <label for="progresso-paginas">Páginas lidas neste dia:</label>
+            <input type="number" id="progresso-paginas" min="0" max="10000" required placeholder="Ex: 24">
+          </div>
+        </div>
+        <button type="submit" id="btn-salvar-progresso" class="btn-primario">Registrar leitura</button>
+      </form>
+
+      <div id="painel-desempenho-leitura" class="painel-desempenho">
+        Faça login para acompanhar suas páginas por dia, semana e mês.
+      </div>
     </section>
 
     <!-- ESPAÇO DOS USUÁRIOS: INDICAÇÕES, VOTAÇÃO E RESENHAS INDIVIDUAIS -->

@@ -58,9 +58,7 @@ function podeUsuarioPublicarResenha() {
 
 function atualizarInterfaceSessao() {
   const painelAdmin = document.getElementById('painel-admin');
-  const secaoLogin = document.getElementById('secao-login');
   const secaoContaUsuario = document.getElementById('secao-conta-usuario');
-  const btnAbrirLogin = document.getElementById('btn-abrir-login');
   const btnAbrirConta = document.getElementById('btn-abrir-conta');
   const btnSair = document.getElementById('btn-sair');
   const badgeUsuario = document.getElementById('badge-usuario-logado');
@@ -72,9 +70,7 @@ function atualizarInterfaceSessao() {
 
   if (estadoApp.usuario) {
     secaoContaUsuario.classList.add('oculto');
-    secaoLogin.classList.add('oculto');
     btnAbrirConta.classList.add('oculto');
-    btnAbrirLogin.classList.add('oculto');
     btnSair.classList.remove('oculto');
 
     const nomeExibido = estadoApp.perfilUsuario?.nome || estadoApp.usuario.email;
@@ -87,7 +83,6 @@ function atualizarInterfaceSessao() {
   } else {
     badgeUsuario.classList.add('oculto');
     btnAbrirConta.classList.remove('oculto');
-    btnAbrirLogin.classList.remove('oculto');
     btnSair.classList.add('oculto');
   }
 
@@ -107,6 +102,7 @@ function atualizarInterfaceSessao() {
   }
   renderizarIndicacoes();
   renderizarTela();
+  renderizarAcompanhamentoLeitura();
 }
 
 async function verificarSessao() {
@@ -118,6 +114,7 @@ async function verificarSessao() {
   if (estadoApp.usuario && !estadoApp.perfilUsuario) {
     await garantirPerfilUsuario(estadoApp.usuario);
   }
+  await carregarProgressoLeitura();
 
   atualizarInterfaceSessao();
 }
@@ -131,6 +128,7 @@ async function entrarComoMembro(email, password) {
   estadoApp.usuario = data.user;
   await carregarPerfis();
   await garantirPerfilUsuario(data.user);
+  await carregarProgressoLeitura();
   atualizarInterfaceSessao();
 }
 
@@ -159,6 +157,7 @@ async function cadastrarMembro({ nome, email, password, fotoArquivo, botao }) {
       estadoApp.usuario = data.user;
       await garantirPerfilUsuario(data.user, nome, fotoUrl);
       await carregarComunidade();
+      await carregarProgressoLeitura();
       atualizarInterfaceSessao();
       alert('Conta criada com sucesso! Bem-vindo(a) ao Clube do Livro.');
     } else {
@@ -172,26 +171,12 @@ async function cadastrarMembro({ nome, email, password, fotoArquivo, botao }) {
   }
 }
 
-async function entrarComoAdminMaster(email, password) {
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) return alert('Erro ao entrar: ' + error.message);
-
-  if ((data.user?.email || '').toLowerCase() !== EMAIL_ADMIN_MASTER.toLowerCase()) {
-    await supabaseClient.auth.signOut();
-    return alert('Esta conta não tem permissão de Admin Master.');
-  }
-
-  estadoApp.usuario = data.user;
-  await carregarPerfis();
-  await garantirPerfilUsuario(data.user);
-  atualizarInterfaceSessao();
-}
-
 async function sairDaConta() {
   await supabaseClient.auth.signOut();
   estadoApp.sessao = null;
   estadoApp.usuario = null;
   estadoApp.perfilUsuario = null;
+  estadoApp.progressoLeitura = [];
   atualizarInterfaceSessao();
 }
 

@@ -47,6 +47,8 @@ A aplicação está dividida em duas experiências principais:
    - votação em indicações;
    - exclusão de conteúdo próprio;
    - publicação de resenhas individuais, quando habilitado pelo administrador.
+   - registro pessoal de páginas lidas por dia;
+   - acompanhamento diário, semanal, mensal e histórico da leitura atual.
 
 O perfil **Admin Master** possui acesso ao painel administrativo, à manutenção dos livros e encontros, ao gerenciamento de permissões e à edição do guia.
 
@@ -102,6 +104,15 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Ordenação das indicações pela quantidade de votos.
 - Exclusão do próprio comentário ou indicação.
 - O administrador também pode excluir comentários e indicações.
+
+### Acompanhamento pessoal
+
+- Um usuário autenticado pode registrar quantas páginas leu em cada data.
+- Os registros são separados por usuário e pela leitura atual.
+- A interface mostra os totais de hoje, da semana atual, do mês atual e do período registrado.
+- A tela calcula média por dia ativo e sequência de dias consecutivos.
+- Um mapa visual de 84 dias usa blocos coloridos para representar o desempenho diário.
+- Alterar a quantidade registrada em uma data substitui o valor daquela data.
 
 ## Arquitetura
 
@@ -240,7 +251,7 @@ Por padrão, o fluxo aceita login por e-mail e senha.
 
 Cadastre no projeto Supabase uma conta com o e-mail definido em `EMAIL_ADMIN_MASTER` no arquivo `config.js`.
 
-Depois use o botão **Admin Master** da interface para entrar.
+Depois use o único botão **Entrar / Cadastrar** da interface e informe as credenciais dessa conta.
 
 Ao criar o perfil, o sistema força `pode_publicar_resenha = true` para o administrador.
 
@@ -381,6 +392,20 @@ Chave primária composta: `(encontro_id, usuario_id)`.
 
 Chave primária composta: `(indicacao_id, usuario_id)`.
 
+### `progresso_leitura`
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `usuario_id` | `uuid` | Usuário que registrou o progresso. |
+| `encontro_id` | `bigint` | Leitura atual vinculada ao registro. |
+| `data_leitura` | `date` | Dia em que as páginas foram lidas. |
+| `paginas_lidas` | `integer` | Quantidade de páginas no dia. |
+| `atualizado_em` | `timestamptz` | Última atualização do registro. |
+
+Chave primária composta: `(usuario_id, encontro_id, data_leitura)`.
+
+Os registros são privados entre usuários pelas políticas RLS. O administrador possui acesso de leitura adicional pelo identificador administrativo.
+
 ## Segurança e permissões
 
 As tabelas usam RLS (Row Level Security). As regras principais são:
@@ -439,12 +464,13 @@ O bucket `fotos-clube` é público para leitura.
 
 O perfil é criado ou atualizado em `perfis_clube`.
 
-### Login administrativo
+### Login único
 
-1. Clicar em **Admin Master**.
-2. Informar o e-mail administrativo e a senha.
-3. Após login, o sistema valida o e-mail.
-4. Contas diferentes são desconectadas com uma mensagem de erro.
+1. Clicar em **Entrar / Cadastrar**.
+2. Informar o e-mail e a senha.
+3. O sistema identifica o tipo da conta pelo e-mail configurado.
+4. Contas administrativas recebem o painel **Admin Master**.
+5. Demais contas recebem apenas os recursos de membro.
 
 ### Criar leitura
 

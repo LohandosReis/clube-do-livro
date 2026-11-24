@@ -97,6 +97,17 @@ create table if not exists public.votos_indicacao (
   primary key (indicacao_id, usuario_id)
 );
 
+create table if not exists public.progresso_leitura (
+  usuario_id uuid not null references auth.users(id) on delete cascade,
+  encontro_id bigint not null references public.encontros(id) on delete cascade,
+  data_leitura date not null,
+  paginas_lidas integer not null default 0,
+  atualizado_em timestamptz not null default now(),
+  primary key (usuario_id, encontro_id, data_leitura),
+  constraint progresso_paginas_validas
+    check (paginas_lidas >= 0)
+);
+
 alter table public.encontros add column if not exists paginas_totais integer not null default 0;
 alter table public.encontros add column if not exists pagina_meta integer not null default 0;
 alter table public.encontros add column if not exists nota numeric(3,1);
@@ -112,6 +123,7 @@ alter table public.avaliacoes_livro enable row level security;
 alter table public.comentarios_livro enable row level security;
 alter table public.indicacoes_livro enable row level security;
 alter table public.votos_indicacao enable row level security;
+alter table public.progresso_leitura enable row level security;
 
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'encontro_paginas_validas') then
@@ -239,6 +251,16 @@ drop policy if exists "votos_proprio" on public.votos_indicacao;
 create policy "votos_proprio" on public.votos_indicacao
   for all using (usuario_id = auth.uid())
   with check (usuario_id = auth.uid());
+
+drop policy if exists "progresso_leitura_proprio" on public.progresso_leitura;
+create policy "progresso_leitura_proprio" on public.progresso_leitura
+  for all using (
+    usuario_id = auth.uid()
+    or public.clube_e_admin()
+  )
+  with check (
+    usuario_id = auth.uid()
+  );
 
 insert into storage.buckets (id, name, public)
 values ('fotos-clube', 'fotos-clube', true)

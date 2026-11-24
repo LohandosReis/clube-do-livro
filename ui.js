@@ -170,6 +170,170 @@ function atualizarPlacar() {
   document.getElementById('stat-media').textContent = mediaGeral !== '-' ? `${mediaGeral} / 5` : '-';
 }
 
+function formatoDataLocal(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+function renderizarAcompanhamentoLeitura() {
+  const secao = document.getElementById('acompanhamento-leitura');
+  const tituloLivro = document.getElementById('acompanhamento-livro');
+  const painel = document.getElementById('painel-desempenho-leitura');
+  const campoData = document.getElementById('progresso-data');
+  if (!secao || !painel) return;
+
+  const atual = estadoApp.encontros.find(
+    item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
+  );
+
+  if (!estadoApp.usuario) {
+    secao.classList.add('oculto');
+    return;
+  }
+
+  secao.classList.remove('oculto');
+
+  if (!atual) {
+    tituloLivro.textContent = 'Não há uma leitura atual definida pelo clube.';
+    painel.innerHTML = '<p>Nenhum livro em andamento está disponível para acompanhamento.</p>';
+    document.getElementById('form-progresso-leitura').classList.add('oculto');
+    return;
+  }
+
+  document.getElementById('form-progresso-leitura').classList.remove('oculto');
+  tituloLivro.textContent = `Livro atual: ${atual.titulo} — ${atual.autor}`;
+
+  if (campoData) {
+    campoData.value = campoData.value || formatoDataLocal(new Date());
+  }
+
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const hojeISO = formatoDataLocal(hoje);
+
+  const inicioSemana = new Date(hoje);
+  const diaSemana = inicioSemana.getDay();
+  inicioSemana.setDate(inicioSemana.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+  const registros = estadoApp.progressoLeitura || [];
+  const mapa = {};
+  registros.forEach(item => {
+    mapa[item.data_leitura] = Number(item.paginas_lidas) || 0;
+  });
+
+  const somarEntre = (inicio, fim = hoje) => registros
+    .filter(item => {
+      const data = new Date(`${item.data_leitura}T00:00:00`);
+      return data >= inicio && data <= fim;
+    })
+    .reduce((total, item) => total + (Number(item.paginas_lidas) || 0), 0);
+
+  const hojePaginas = mapa[hojeISO] || 0;
+  const semanaPaginas = somarEntre(inicioSemana);
+  const mesPaginas = somarEntre(inicioMes);
+  const totalPaginas = registros.reduce(
+    (total, item) => total + (Number(item.paginas_lidas) || 0),
+    0
+  );
+
+  const limites = registros
+    .map(item => Number(item.paginas_lidas) || 0)
+    .filter(paginas => paginas > 0);
+  const mediaDia = limites.length
+    ? Math.round(limites.reduce((total, paginas) => total + paginas, 0) / limites.length)
+    : 0;
+
+  let sequencia = 0;
+  for (let i = 0; i < 365; i++) {
+    const data = new Date(hoje);
+    data.setDate(hoje.getDate() - i);
+    if ((mapa[formatoDataLocal(data)] || 0) > 0) {
+      sequencia++;
+    } else {
+      break;
+    }
+  }
+
+  const maiorLeitura = Math.max(0, ...limites);
+  const nivel = paginas => {
+    if (!paginas) return 0;
+    if (maiorLeitura <= 1) return 1;
+    if (paginas >= maiorLeitura * 0.75) return 4;
+    if (paginas >= maiorLeitura * 0.50) return 3;
+    if (paginas >= maiorLeitura * 0.25) return 2;
+    return 1;
+  };
+
+  const inicioHeatmap = new Date(hoje);
+  inicioHeatmap.setDate(inicioHeatmap.getDate() - 83);
+  const quadrados = [];
+  for (let i = 0; i < 84; i++) {
+    const data = new Date(inicioHeatmap);
+    data.setDate(inicioHeatmap.getDate() + i);
+    const iso = formatoDataLocal(data);
+    const paginas = mapa[iso] || 0;
+    const labelData = data.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short'
+    });
+    quadrados.push(`
+      <span
+        class="bloco-leitura nivel-${nivel(paginas)}"
+        title="${labelData}: ${paginas} página${paginas === 1 ? '' : 's'}"
+        aria-label="${labelData}: ${paginas} página${paginas === 1 ? '' : 's'}"
+      ></span>
+    `);
+  }
+
+  painel.innerHTML = `
+    <div class="metricas-leitura">
+      <div class="metrica-leitura">
+        <strong>${hojePaginas}</strong>
+        <span>Hoje</span>
+      </div>
+      <div class="metrica-leitura">
+        <strong>${semanaPaginas}</strong>
+        <span>Esta semana</span>
+      </div>
+      <div class="metrica-leitura">
+        <strong>${mesPaginas}</strong>
+        <span>Este mês</span>
+      </div>
+      <div class="metrica-leitura">
+        <strong>${totalPaginas}</strong>
+        <span>Total registrado</span>
+      </div>
+      <div class="metrica-leitura">
+        <strong>${mediaDia}</strong>
+        <span>Média por dia ativo</span>
+      </div>
+      <div class="metrica-leitura">
+        <strong>${sequencia}</strong>
+        <span>Sequência atual</span>
+      </div>
+    </div>
+
+    <div class="heatmap-leitura">
+      <div class="heatmap-titulo">
+        <strong>Meu desempenho nas últimas 12 semanas</strong>
+        <div class="heatmap-legenda">
+          <span>Menos</span>
+          <span class="bloco-leitura nivel-0"></span>
+          <span class="bloco-leitura nivel-1"></span>
+          <span class="bloco-leitura nivel-2"></span>
+          <span class="bloco-leitura nivel-3"></span>
+          <span class="bloco-leitura nivel-4"></span>
+          <span>Mais</span>
+        </div>
+      </div>
+      <div class="heatmap-blocos">${quadrados.join('')}</div>
+    </div>
+  `;
+}
+
 function gerarLinkGoogleAgenda(item) {
   const dataLimpa = (item.data_encontro || '').replace(/-/g, '');
   const titulo = encodeURIComponent(`Clube do Livro: ${item.titulo}`);

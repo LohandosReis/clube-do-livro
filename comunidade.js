@@ -234,3 +234,65 @@ async function carregarComunidade() {
   }
   renderizarIndicacoes();
 }
+
+async function carregarProgressoLeitura() {
+  estadoApp.progressoLeitura = [];
+  if (!estadoApp.usuario) {
+    renderizarAcompanhamentoLeitura();
+    return;
+  }
+
+  const atual = estadoApp.encontros.find(
+    item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
+  );
+  if (!atual) {
+    renderizarAcompanhamentoLeitura();
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('progresso_leitura')
+    .select('*')
+    .eq('usuario_id', estadoApp.usuario.id)
+    .eq('encontro_id', atual.id)
+    .order('data_leitura', { ascending: true });
+
+  if (error) {
+    console.warn('Erro ao carregar progresso pessoal:', error.message);
+  } else {
+    estadoApp.progressoLeitura = data || [];
+  }
+  renderizarAcompanhamentoLeitura();
+}
+
+window.salvarProgressoLeitura = async (dataLeitura, paginas) => {
+  if (!estadoApp.usuario) {
+    alert('Entre na sua conta para registrar sua leitura.');
+    document.getElementById('secao-conta-usuario').classList.remove('oculto');
+    return;
+  }
+
+  const atual = estadoApp.encontros.find(
+    item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
+  );
+  if (!atual) return alert('Não existe uma leitura atual cadastrada.');
+
+  const paginasInt = parseInt(paginas, 10);
+  if (!dataLeitura) return alert('Selecione a data da leitura.');
+  if (!Number.isInteger(paginasInt) || paginasInt < 0) {
+    return alert('Informe uma quantidade válida de páginas.');
+  }
+
+  const { error } = await supabaseClient
+    .from('progresso_leitura')
+    .upsert({
+      usuario_id: estadoApp.usuario.id,
+      encontro_id: atual.id,
+      data_leitura: dataLeitura,
+      paginas_lidas: paginasInt
+    }, { onConflict: 'usuario_id,encontro_id,data_leitura' });
+
+  if (error) return alert('Erro ao registrar leitura: ' + error.message);
+
+  await carregarProgressoLeitura();
+};
