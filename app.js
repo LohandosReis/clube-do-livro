@@ -6,7 +6,6 @@ const secaoLogin = document.getElementById('secao-login');
 const btnAbrirLogin = document.getElementById('btn-abrir-login');
 const btnSair = document.getElementById('btn-sair');
 
-
 function escaparHTML(texto = '') {
   return String(texto)
     .replace(/&/g, '&amp;')
@@ -14,6 +13,13 @@ function escaparHTML(texto = '') {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function formatarTextoMultilinha(texto = '') {
+  return String(texto)
+    .replace(/\r\n/g, '\n')
+    .replace(/\s*•\s*/g, '\n• ')
+    .trim();
 }
 
 function formatarDataBR(dataISO) {
@@ -402,12 +408,12 @@ function renderizarTela() {
           ${botoesAdmin}
         </div>
         <div class="modulo-corpo">
-          ${item.horario_local ? `<p style="margin:0 0 8px 0;">📍 <strong>Local/Horário:</strong> ${escaparHTML(item.horario_local)}</p>` : ''}
-          ${item.bio_autor ? `<p style="margin:0 0 8px 0;">✍️ <strong>Sobre o Escritor:</strong> ${escaparHTML(item.bio_autor)}</p>` : ''}
+          ${item.horario_local ? `<p class="linha-meta-modulo">📍 <strong>Local/Horário:</strong> ${escaparHTML(item.horario_local)}</p>` : ''}
+          ${item.bio_autor ? `<div class="bloco-bio-autor">✍️ <strong>Sobre o Escritor:</strong>\n${escaparHTML(formatarTextoMultilinha(item.bio_autor))}</div>` : ''}
           ${item.discussao
             ? `<details class="spoiler-box">
                  <summary>💬 Ver discussões e anotações do encontro (Contém Spoilers)</summary>
-                 <p style="margin-top:0.6rem; white-space:pre-line;">${escaparHTML(item.discussao)}</p>
+                 <div class="texto-spoiler">${escaparHTML(formatarTextoMultilinha(item.discussao))}</div>
                </details>`
             : ''}
           ${fotosHTML ? `<div class="galeria-fotos">${fotosHTML}</div>` : ''}
