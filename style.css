@@ -10,6 +10,7 @@
   --texto-suave: #5d6672;
   --verde: #2d6a4f;
   --ambar: #c26d1f;
+  --roxo-suave: #5b3a82;
   --perigo: #b42318;
   --sombra-card: 0 2px 10px rgba(30, 36, 43, 0.04);
   --sombra-hover: 0 12px 28px rgba(30, 36, 43, 0.08);
@@ -32,7 +33,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, .stat-numero {
+h1, h2, h3, h4, .stat-numero {
   font-family: 'Fraunces', Georgia, serif;
   letter-spacing: -0.02em;
 }
@@ -61,6 +62,32 @@ header small {
   margin-top: 0.2rem;
   color: rgba(255, 253, 249, 0.84);
   font-size: 0.88rem;
+}
+
+.header-acoes {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.badge-usuario {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.32rem 0.7rem 0.32rem 0.35rem;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.badge-usuario img {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  object-fit: cover;
 }
 
 main {
@@ -163,6 +190,10 @@ main {
   background: linear-gradient(180deg, #ffffff 0%, #fcfbf8 100%);
 }
 
+.comunidade-box {
+  border-left: 5px solid var(--roxo-suave);
+}
+
 .admin-box {
   border-left: 5px solid var(--ambar);
 }
@@ -176,8 +207,8 @@ main {
   display: none !important;
 }
 
-/* Abas Admin */
-.abas-admin {
+/* Abas Admin e Conta */
+.abas-admin, .abas-conta {
   display: flex;
   gap: 0.65rem;
   border-bottom: 1px solid var(--cor-borda);
@@ -273,7 +304,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .btn-mini {
-  padding: 0.35rem 0.75rem;
+  padding: 0.38rem 0.75rem;
   font-size: 0.78rem;
 }
 
@@ -376,6 +407,101 @@ input:focus, select:focus, textarea:focus {
 .btn-remover-foto:hover {
   background: #961c12;
   transform: scale(1.08);
+}
+
+/* Usuários no Admin Master */
+.lista-usuarios-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+}
+
+.usuario-item-admin {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 1rem;
+  background: var(--cor-superficie-suave);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.usuario-info-admin {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.usuario-info-admin img {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid var(--cor-borda);
+}
+
+/* Espaço da Comunidade (Indicações e Resenhas Individuais) */
+.comunidade-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.sub-box-comunidade {
+  margin-top: 1rem;
+  padding: 1.1rem;
+  background: var(--cor-superficie-suave);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.lista-indicacoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.indicacao-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.95rem 1.05rem;
+  background: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.indicacao-autor-linha {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.indicacao-autor-linha img {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.indicacao-motivo {
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+  color: #2f3742;
+}
+
+.indicacao-acoes {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 hr {
@@ -597,6 +723,10 @@ button:active, .btn-agenda:active {
   background: var(--ambar);
 }
 
+.tag-individual {
+  background: var(--roxo-suave);
+}
+
 .modulo-corpo {
   padding: 1.45rem 1.6rem;
   line-height: 1.72;
@@ -672,6 +802,94 @@ details.spoiler-box summary {
   transform: translateY(-3px) scale(1.02);
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.13);
   border-color: var(--cor-primaria);
+}
+
+/* Avaliação por Livro */
+.avaliacao-livro-box {
+  margin-top: 1.15rem;
+  padding: 0.9rem 1rem;
+  background: #fcfbf8;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.avaliacao-controles {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
+.input-nota-livro {
+  max-width: 130px !important;
+  margin: 0 !important;
+  padding: 0.45rem 0.7rem !important;
+}
+
+/* Comentários dos Membros */
+.comentarios-box {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.comentarios-titulo {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.comentarios-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.comentario-item {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.9rem;
+  background: var(--cor-superficie-suave);
+  border-radius: var(--raio-sm);
+  border: 1px solid var(--cor-borda);
+}
+
+.comentario-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.comentario-corpo {
+  flex: 1;
+}
+
+.comentario-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.comentario-topo small {
+  color: var(--texto-suave);
+}
+
+.comentario-texto {
+  margin: 0.3rem 0 0;
+  white-space: pre-line;
+  font-size: 0.92rem;
+}
+
+.comentario-form {
+  margin-top: 0.75rem;
+}
+
+.comentario-form textarea {
+  margin-bottom: 0.45rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

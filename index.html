@@ -17,11 +17,13 @@
   <header>
     <div>
       <h1>📚 Nosso Clube do Livro</h1>
-      <small>Acompanhamento de leituras físicas, metas e encontros</small>
+      <small>Acompanhamento de leituras físicas, metas, resenhas e encontros</small>
     </div>
-    <div>
-      <button id="btn-abrir-login" class="btn-secundario">Área Admin</button>
-      <button id="btn-sair" class="btn-perigo oculto">Sair do Admin</button>
+    <div class="header-acoes">
+      <div id="badge-usuario-logado" class="badge-usuario oculto"></div>
+      <button type="button" id="btn-abrir-conta" class="btn-secundario">Entrar / Cadastrar</button>
+      <button type="button" id="btn-abrir-login" class="btn-secundario">Admin Master</button>
+      <button type="button" id="btn-sair" class="btn-perigo oculto">Sair</button>
     </div>
   </header>
 
@@ -42,19 +44,46 @@
       </div>
     </section>
 
-    <!-- MODAL DE LOGIN -->
-    <section id="secao-login" class="card oculto">
-      <h2>Login do Administrador</h2>
-      <input type="email" id="admin-email" placeholder="E-mail do admin">
-      <input type="password" id="admin-senha" placeholder="Senha">
-      <button id="btn-entrar" class="btn-primario">Entrar</button>
-      <button id="btn-fechar-login" class="btn-secundario">Cancelar</button>
+    <!-- LOGIN / CADASTRO DE USUÁRIO DO CLUBE -->
+    <section id="secao-conta-usuario" class="card oculto">
+      <div class="abas-conta">
+        <button type="button" id="tab-user-login" class="btn-primario">🔑 Entrar na Conta</button>
+        <button type="button" id="tab-user-cadastro" class="btn-secundario">✨ Criar Conta de Membro</button>
+        <button type="button" id="btn-fechar-conta" class="btn-secundario">Fechar</button>
+      </div>
+
+      <div id="form-user-login-box" style="margin-top:1rem;">
+        <h2>Entrar como Membro do Clube</h2>
+        <input type="email" id="user-login-email" placeholder="Seu e-mail">
+        <input type="password" id="user-login-senha" placeholder="Sua senha">
+        <button type="button" id="btn-user-entrar" class="btn-primario">Entrar</button>
+      </div>
+
+      <div id="form-user-cadastro-box" class="oculto" style="margin-top:1rem;">
+        <h2>Cadastro de Novo Membro</h2>
+        <input type="text" id="user-cad-nome" placeholder="Seu nome ou apelido" required>
+        <input type="email" id="user-cad-email" placeholder="Seu e-mail" required>
+        <input type="password" id="user-cad-senha" placeholder="Crie uma senha (mín. 6 caracteres)" required>
+        <label>Sua Foto de Perfil (opcional):</label>
+        <input type="file" id="user-cad-foto" accept="image/*">
+        <button type="button" id="btn-user-cadastrar" class="btn-primario">Criar Conta</button>
+      </div>
     </section>
 
-    <!-- PAINEL DO ADMINISTRADOR -->
+    <!-- LOGIN DO ADMIN MASTER -->
+    <section id="secao-login" class="card oculto">
+      <h2>Login do Admin Master</h2>
+      <input type="email" id="admin-email" placeholder="E-mail do Admin Master">
+      <input type="password" id="admin-senha" placeholder="Senha">
+      <button type="button" id="btn-entrar" class="btn-primario">Entrar</button>
+      <button type="button" id="btn-fechar-login" class="btn-secundario">Cancelar</button>
+    </section>
+
+    <!-- PAINEL DO ADMIN MASTER -->
     <section id="painel-admin" class="card admin-box oculto">
       <div class="abas-admin">
         <button type="button" id="tab-btn-livro" class="btn-primario">📖 Gerenciar Livros / Encontros</button>
+        <button type="button" id="tab-btn-usuarios" class="btn-secundario">👥 Usuários e Permissões</button>
         <button type="button" id="tab-btn-guia" class="btn-secundario">🧭 Editar Guia de Discussão</button>
       </div>
 
@@ -68,7 +97,7 @@
         <div class="busca-api" style="margin-top:1rem;">
           <label>1. Buscar Livro na Internet (Preenche capa, autor, páginas e prévia automaticamente):</label>
           <div class="linha-busca">
-            <input type="text" id="input-busca-livro" placeholder="Digite o nome do livro ou autor (ex: Walden, Dom Casmurro)...">
+            <input type="text" id="input-busca-livro" placeholder="Digite o nome do livro ou autor (ex: Walden, Tolstói)...">
             <button type="button" id="btn-buscar-api" class="btn-primario">Buscar na Web</button>
           </div>
           <div id="resultados-api" class="grid-resultados"></div>
@@ -79,6 +108,9 @@
         <form id="form-encontro">
           <input type="hidden" id="edit-id">
           <input type="hidden" id="edit-fotos-existentes">
+          <input type="hidden" id="edit-tipo-postagem">
+          <input type="hidden" id="edit-autor-postagem-id">
+          <input type="hidden" id="edit-autor-postagem-nome">
 
           <label>2. Informações do Livro Físico:</label>
           <input type="text" id="livro-titulo" placeholder="Título do Livro" required>
@@ -114,7 +146,7 @@
           <div class="linha-dupla">
             <input type="number" id="livro-paginas-totais" placeholder="Total de páginas do livro" min="0">
             <input type="number" id="livro-pagina-meta" placeholder="Página atual / Meta alcançada" min="0">
-            <input type="number" id="livro-nota" placeholder="Nota do Clube (0 a 5)" step="0.1" min="0" max="5">
+            <input type="number" id="livro-nota" placeholder="Nota inicial / referência (0 a 5)" step="0.1" min="0" max="5">
           </div>
 
           <input type="text" id="livro-meta-texto" placeholder="Meta da semana (ex: Ler até o Cap. 4 - pág. 95 até sexta)">
@@ -122,10 +154,10 @@
           <label>4. Resumo da Vida do Escritor / Contexto da Obra:</label>
           <textarea id="autor-bio" rows="4" placeholder="Breve biografia, contexto histórico do autor ou sinopse inicial..."></textarea>
 
-          <label>5. Discussões, Citações e Impressões do Encontro:</label>
-          <textarea id="encontro-discussao" rows="4" placeholder="Tópicos debatidos (ficará protegido por aviso de spoiler)..."></textarea>
+          <label>5. Discussões, Resenha, Citações e Impressões:</label>
+          <textarea id="encontro-discussao" rows="4" placeholder="Tópicos debatidos ou resenha do livro..."></textarea>
 
-          <label>6. Fotos do Encontro (Compressão automática ativada):</label>
+          <label>6. Fotos do Encontro / Livro (Compressão automática ativada):</label>
           <div id="container-fotos-existentes" class="fotos-existentes-box oculto"></div>
           <input type="file" id="encontro-fotos" accept="image/*" multiple>
 
@@ -133,7 +165,14 @@
         </form>
       </div>
 
-      <!-- ABA 2: EDITAR GUIA DE DISCUSSÃO -->
+      <!-- ABA 2: GERENCIAR USUÁRIOS E PERMISSÕES -->
+      <div id="aba-usuarios" class="oculto" style="margin-top:1rem;">
+        <h2>👥 Usuários Cadastrados e Permissões</h2>
+        <p><small>Habilite os membros que podem publicar resenhas e leituras individuais no site.</small></p>
+        <div id="lista-usuarios-admin" class="lista-usuarios-admin">Carregando usuários...</div>
+      </div>
+
+      <!-- ABA 3: EDITAR GUIA DE DISCUSSÃO -->
       <div id="aba-guia" class="oculto" style="margin-top:1rem;">
         <h2>🧭 Personalizar Guia de Discussão e Orientações</h2>
         <p><small>Adapte as perguntas e o roteiro de acordo com o gênero ou livro que o clube está lendo.</small></p>
@@ -155,6 +194,51 @@
       <div id="conteudo-atual">Carregando...</div>
     </section>
 
+    <!-- ESPAÇO DOS USUÁRIOS: INDICAÇÕES, VOTAÇÃO E RESENHAS INDIVIDUAIS -->
+    <section id="espaco-usuarios" class="card comunidade-box">
+      <div class="comunidade-cabecalho">
+        <div>
+          <h2 style="margin:0;">🗳️ Espaço dos Membros: Indicações, Votação e Resenhas</h2>
+          <small>Indique livros para as próximas leituras, vote nos favoritos do clube e confira resenhas individuais.</small>
+        </div>
+        <button type="button" id="btn-toggle-resenha-individual" class="btn-primario oculto">✍️ Nova Resenha / Leitura Individual</button>
+      </div>
+
+      <!-- FORMULÁRIO DE RESENHA / LEITURA INDIVIDUAL (PARA USUÁRIOS HABILITADOS) -->
+      <div id="box-resenha-individual" class="sub-box-comunidade oculto">
+        <h3 style="margin-top:0;">✍️ Publicar Resenha ou Leitura Individual</h3>
+        <form id="form-resenha-individual">
+          <div class="linha-dupla">
+            <input type="text" id="resenha-titulo" placeholder="Título do Livro" required>
+            <input type="text" id="resenha-autor" placeholder="Autor(a)" required>
+          </div>
+          <div class="linha-dupla">
+            <select id="resenha-genero" required></select>
+            <input type="number" id="resenha-paginas" placeholder="Total de páginas" min="0">
+            <input type="number" id="resenha-nota" placeholder="Sua nota (0 a 5)" step="0.1" min="0" max="5">
+          </div>
+          <textarea id="resenha-texto" rows="4" placeholder="Escreva sua resenha ou impressões da leitura..." required></textarea>
+          <button type="submit" id="btn-publicar-resenha" class="btn-primario">Publicar Resenha no Site</button>
+        </form>
+      </div>
+
+      <!-- INDICAÇÕES E VOTAÇÃO -->
+      <div class="sub-box-comunidade" style="margin-top:1rem;">
+        <h3 style="margin-top:0;">📌 Indicações para Próximas Leituras & Votação</h3>
+        <form id="form-indicacao" class="form-indicacao">
+          <div class="linha-dupla">
+            <input type="text" id="indicacao-titulo" placeholder="Título sugerido" required>
+            <input type="text" id="indicacao-autor" placeholder="Autor(a)" required>
+            <select id="indicacao-genero"></select>
+          </div>
+          <input type="text" id="indicacao-motivo" placeholder="Por que vale a pena ler este livro? (opcional)">
+          <button type="submit" id="btn-enviar-indicacao" class="btn-secundario">➕ Indicar Livro</button>
+        </form>
+
+        <div id="lista-indicacoes" class="lista-indicacoes">Carregando indicações...</div>
+      </div>
+    </section>
+
     <!-- GUIA DE DISCUSSÃO EDITÁVEL (RETRÁTIL) -->
     <section class="card guia-box">
       <details>
@@ -165,8 +249,13 @@
 
     <!-- FILTROS -->
     <section class="filtros-box">
-      <h3>Histórico e Fila de Leituras</h3>
+      <h3>Histórico, Leituras do Clube e Resenhas Individuais</h3>
       <div class="linha-filtros">
+        <select id="filtro-tipo">
+          <option value="todos">Todas as Postagens</option>
+          <option value="clube">📚 Leituras / Encontros do Clube</option>
+          <option value="individual">✍️ Resenhas / Leituras Individuais</option>
+        </select>
         <select id="filtro-status">
           <option value="todos">Todos os Status</option>
           <option value="lido">✅ Concluídos</option>
@@ -180,7 +269,7 @@
       </div>
     </section>
 
-    <!-- MÓDULOS DE ENCONTROS -->
+    <!-- MÓDULOS DE ENCONTROS E RESENHAS -->
     <section id="lista-encontros" class="modulos-container"></section>
   </main>
 
