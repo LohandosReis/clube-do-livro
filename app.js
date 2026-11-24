@@ -317,12 +317,22 @@ document.getElementById('form-guia').onsubmit = async (e) => {
   carregarGuia();
 };
 
-// 3. Buscar Livro em Múltiplas Fontes (OpenLibrary + Gutendex + Google Books)
+// 3. Buscar Livro em Fontes Abertas com Timeout Seguro
+async function fetchComTimeout(url, timeoutMs = 6000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function buscarNaOpenLibrary(termo) {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(termo)}&limit=8`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`OpenLibrary HTTP ${res.status}`);
-  const dados = await res.json();
+  const dados = await fetchComTimeout(url, 6000);
   const docs = Array.isArray(dados.docs) ? dados.docs : [];
 
   return docs.map(doc => {
@@ -344,9 +354,7 @@ async function buscarNaOpenLibrary(termo) {
 
 async function buscarNoGutendex(termo) {
   const url = `https://gutendex.com/books/?search=${encodeURIComponent(termo)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Gutendex HTTP ${res.status}`);
-  const dados = await res.json();
+  const dados = await fetchComTimeout(url, 6000);
   const books = Array.isArray(dados.results) ? dados.results.slice(0, 6) : [];
 
   return books.map(book => {
@@ -367,30 +375,30 @@ async function buscarNoGutendex(termo) {
   });
 }
 
-async function buscarNoGoogleBooks(termo) {
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}&maxResults=6&printType=books`;
-  const res = await fetch(url);
-  if (res.status === 429) {
-    return [];
-  }
-  if (!res.ok) throw new Error(`Google Books HTTP ${res.status}`);
-  const dados = await res.json();
-  const items = Array.isArray(dados.items) ? dados.items : [];
+async function buscarNaOpenAlex(termo) {
+  const url = `https://api.openalex.org/works?search=${encodeURIComponent(termo)}&per-page=6`;
+  const dados = await fetchComTimeout(url, 6000);
+  const works = Array.isArray(dados.results) ? dados.results : [];
 
-  return items.map(item => {
-    const info = item.volumeInfo || {};
-    const titulo = info.subtitle ? `${info.title}: ${info.subtitle}` : (info.title || 'Sem título');
-    const capaRaw = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || '';
-    const capa = capaRaw
-      ? capaRaw.replace(/^http:/, 'https:').replace('&edge=curl', '')
-      : 'https://placehold.co/95x135?text=Sem+Capa';
-    const autor = Array.isArray(info.authors) && info.authors.length ? info.authors.join(', ') : 'Autor desconhecido';
-    const paginas = info.pageCount || '';
-    const categorias = Array.isArray(info.categories) ? info.categories : [];
-    const descricao = info.description || '';
+  return works
+    .filter(w => w.title)
+    .map(w => {
+      const autores = Array.isArray(w.authorships) && w.authorships.length
+        ? w.authorships.map(a => a.author?.display_name).filter(Boolean).join(', ')
+        : 'Autor desconhecido';
+      const ano = w.publication_year ? `Ano: ${w.publication_year}.` : '';
+      const descricao = ano ? `${ano} Registro acadêmico/literário na OpenAlex.` : '';
 
-    return { fonte: 'Google Books', titulo, autor, capa, paginas, categorias, descricao };
-  });
+      return {
+        fonte: 'OpenAlex',
+        titulo: w.title,
+        autor: autores || 'Autor desconhecido',
+        capa: 'https://placehold.co/95x135?text=Sem+Capa',
+        paginas: '',
+        categorias: [],
+        descricao
+      };
+    });
 }
 
 function pontuarRelevancia(livro, termo) {
@@ -418,68 +426,77 @@ document.getElementById('btn-buscar-api').onclick = async () => {
   const termo = document.getElementById('input-busca-livro').value.trim();
   if (!termo) return;
 
+  const btnBuscar = document.getElementById('btn-buscar-api');
   const container = document.getElementById('resultados-api');
-  container.innerHTML = '<small>Buscando na OpenLibrary, Gutenberg e Google Books...</small>';
+  btnBuscar.disabled = true;
+  container.innerHTML = '<small>Buscando livros...</small>';
 
-  const consultas = await Promise.allSettled([
-    buscarNaOpenLibrary(termo),
-    buscarNoGutendex(termo),
-    buscarNoGoogleBooks(termo)
-  ]);
+  try {
+    const consultas = await Promise.allSettled([
+      buscarNaOpenLibrary(termo),
+      buscarNoGutendex(termo),
+      buscarNaOpenAlex(termo)
+    ]);
 
-  let combinados = [];
-  consultas.forEach(resultado => {
-    if (resultado.status === 'fulfilled' && Array.isArray(resultado.value)) {
-      combinados = combinados.concat(resultado.value);
+    let combinados = [];
+    consultas.forEach(resultado => {
+      if (resultado.status === 'fulfilled' && Array.isArray(resultado.value)) {
+        combinados = combinados.concat(resultado.value);
+      }
+    });
+
+    combinados.sort((a, b) => pontuarRelevancia(b, termo) - pontuarRelevancia(a, termo));
+    combinados = combinados.slice(0, 14);
+
+    container.innerHTML = '';
+
+    if (!combinados.length) {
+      container.innerHTML = '<small>Nenhum livro encontrado nas fontes consultadas. Tente outro título ou nome do autor.</small>';
+      return;
     }
-  });
 
-  combinados.sort((a, b) => pontuarRelevancia(b, termo) - pontuarRelevancia(a, termo));
-  combinados = combinados.slice(0, 14);
+    combinados.forEach(livro => {
+      const div = document.createElement('div');
+      div.className = 'item-api';
+      div.innerHTML = `
+        <img src="${escaparHTML(livro.capa)}" alt="${escaparHTML(livro.titulo)}" loading="lazy">
+        <p>
+          <strong>${escaparHTML(livro.titulo)}</strong><br>
+          <small>${escaparHTML(livro.autor)}${livro.paginas ? ` • ${livro.paginas} págs.` : ''}</small><br>
+          <small style="opacity:0.75;">Fonte: ${escaparHTML(livro.fonte)}</small>
+        </p>
+      `;
 
-  container.innerHTML = '';
+      div.onclick = () => {
+        document.getElementById('livro-titulo').value = livro.titulo;
+        document.getElementById('livro-autor').value = livro.autor;
+        document.getElementById('livro-capa').value = livro.capa;
+        if (livro.paginas) {
+          document.getElementById('livro-paginas-totais').value = livro.paginas;
+        }
 
-  if (!combinados.length) {
-    container.innerHTML = '<small>Nenhum livro encontrado nas fontes consultadas. Tente outro título ou nome do autor.</small>';
-    return;
+        const generosSugeridos = mapearCategoriasApiParaGeneros(livro.categorias);
+        if (generosSugeridos.length) {
+          definirGenerosSelecionados(generosSugeridos, true);
+        }
+
+        const campoBio = document.getElementById('autor-bio');
+        if (livro.descricao && !campoBio.value.trim()) {
+          const resumoLimpo = livro.descricao.replace(/\s+/g, ' ').trim();
+          campoBio.value = `Autor(a): ${livro.autor}\n• Contexto / Sinopse inicial: ${resumoLimpo}`;
+        }
+
+        container.innerHTML = '<small>✅ Dados preenchidos automaticamente! Revise e ajuste o que quiser antes de publicar.</small>';
+      };
+
+      container.appendChild(div);
+    });
+  } catch (err) {
+    console.error('Erro na busca de livros:', err);
+    container.innerHTML = '<small>Não foi possível concluir a busca agora. Tente novamente em instantes.</small>';
+  } finally {
+    btnBuscar.disabled = false;
   }
-
-  combinados.forEach(livro => {
-    const div = document.createElement('div');
-    div.className = 'item-api';
-    div.innerHTML = `
-      <img src="${escaparHTML(livro.capa)}" alt="${escaparHTML(livro.titulo)}" loading="lazy">
-      <p>
-        <strong>${escaparHTML(livro.titulo)}</strong><br>
-        <small>${escaparHTML(livro.autor)}${livro.paginas ? ` • ${livro.paginas} págs.` : ''}</small><br>
-        <small style="opacity:0.75;">Fonte: ${escaparHTML(livro.fonte)}</small>
-      </p>
-    `;
-
-    div.onclick = () => {
-      document.getElementById('livro-titulo').value = livro.titulo;
-      document.getElementById('livro-autor').value = livro.autor;
-      document.getElementById('livro-capa').value = livro.capa;
-      if (livro.paginas) {
-        document.getElementById('livro-paginas-totais').value = livro.paginas;
-      }
-
-      const generosSugeridos = mapearCategoriasApiParaGeneros(livro.categorias);
-      if (generosSugeridos.length) {
-        definirGenerosSelecionados(generosSugeridos, true);
-      }
-
-      const campoBio = document.getElementById('autor-bio');
-      if (livro.descricao && !campoBio.value.trim()) {
-        const resumoLimpo = livro.descricao.replace(/\s+/g, ' ').trim();
-        campoBio.value = `Autor(a): ${livro.autor}\n• Contexto / Sinopse inicial: ${resumoLimpo}`;
-      }
-
-      container.innerHTML = '<small>✅ Dados preenchidos automaticamente! Revise e ajuste o que quiser antes de publicar.</small>';
-    };
-
-    container.appendChild(div);
-  });
 };
 
 document.getElementById('input-busca-livro').addEventListener('keydown', (e) => {
