@@ -35,6 +35,11 @@ window.enviarAvaliacaoLivro = async (encontroId) => {
   if (Number.isNaN(valor) || valor < 0 || valor > 5) {
     return alert('Digite uma nota entre 0 e 5.');
   }
+  const avaliacaoExistente = estadoApp.avaliacoes.find(
+    item => item.encontro_id === encontroId && item.usuario_id === estadoApp.usuario.id
+  );
+  if (avaliacaoExistente && Number(avaliacaoExistente.nota) !== valor &&
+      !confirm('Salvar a alteração da sua nota para este livro?')) return;
 
   const { error } = await supabaseClient
     .from('avaliacoes_livro')
@@ -82,9 +87,38 @@ window.enviarComentarioLivro = async (encontroId) => {
 };
 
 window.apagarComentario = async (comentarioId) => {
+  const comentario = estadoApp.comentarios.find(item => item.id === comentarioId);
+  if (!estadoApp.usuario || !comentario ||
+      (!estadoApp.ehAdminMaster && comentario.usuario_id !== estadoApp.usuario.id)) {
+    return alert('Você não tem permissão para apagar este comentário.');
+  }
   if (!confirm('Deseja apagar este comentário?')) return;
   const { error } = await supabaseClient.from('comentarios_livro').delete().eq('id', comentarioId);
   if (error) return alert('Erro ao apagar comentário: ' + error.message);
+  await carregarComunidade();
+  renderizarTela();
+};
+
+window.editarComentario = async (comentarioId) => {
+  if (!estadoApp.usuario || !estadoApp.ehAdminMaster) {
+    return alert('Apenas o Admin Master pode editar comentários.');
+  }
+
+  const comentario = estadoApp.comentarios.find(item => item.id === comentarioId);
+  if (!comentario) return alert('Este comentário não foi encontrado.');
+
+  const texto = prompt('Edite o comentário:', comentario.texto);
+  if (texto === null) return;
+  const textoFinal = texto.trim();
+  if (!textoFinal) return alert('O comentário não pode ficar vazio.');
+  if (textoFinal === comentario.texto) return;
+  if (!confirm('Salvar as alterações deste comentário?')) return;
+
+  const { error } = await supabaseClient
+    .from('comentarios_livro')
+    .update({ texto: textoFinal })
+    .eq('id', comentarioId);
+  if (error) return alert('Erro ao editar comentário: ' + error.message);
   await carregarComunidade();
   renderizarTela();
 };
@@ -130,6 +164,7 @@ window.alternarVotoIndicacao = async (indicacaoId) => {
   );
 
   if (jaVotou) {
+    if (!confirm('Remover seu voto desta indicação?')) return;
     const { error } = await supabaseClient
       .from('votos_indicacao')
       .delete()
@@ -148,6 +183,11 @@ window.alternarVotoIndicacao = async (indicacaoId) => {
 };
 
 window.apagarIndicacao = async (indicacaoId) => {
+  const indicacao = estadoApp.indicacoes.find(item => item.id === indicacaoId);
+  if (!estadoApp.usuario || !indicacao ||
+      (!estadoApp.ehAdminMaster && indicacao.usuario_id !== estadoApp.usuario.id)) {
+    return alert('Você não tem permissão para remover esta indicação.');
+  }
   if (!confirm('Remover esta indicação?')) return;
   const { error } = await supabaseClient.from('indicacoes_livro').delete().eq('id', indicacaoId);
   if (error) return alert('Erro ao remover indicação: ' + error.message);
@@ -155,12 +195,132 @@ window.apagarIndicacao = async (indicacaoId) => {
   renderizarIndicacoes();
 };
 
+window.editarIndicacao = async (indicacaoId) => {
+  if (!estadoApp.usuario || !estadoApp.ehAdminMaster) {
+    return alert('Apenas o Admin Master pode editar indicações.');
+  }
+
+  const indicacao = estadoApp.indicacoes.find(item => item.id === indicacaoId);
+  if (!indicacao) return alert('Esta indicação não foi encontrada.');
+
+  const titulo = prompt('Título do livro:', indicacao.titulo);
+  if (titulo === null) return;
+  const autor = prompt('Autor(a):', indicacao.autor);
+  if (autor === null) return;
+  const genero = prompt('Gênero:', indicacao.genero || '');
+  if (genero === null) return;
+  const motivo = prompt('Motivo da indicação:', indicacao.motivo || '');
+  if (motivo === null) return;
+
+  const dados = {
+    titulo: titulo.trim(),
+    autor: autor.trim(),
+    genero: genero.trim(),
+    motivo: motivo.trim()
+  };
+  if (!dados.titulo || !dados.autor) {
+    return alert('Título e autor são obrigatórios.');
+  }
+  if (dados.titulo === indicacao.titulo &&
+      dados.autor === indicacao.autor &&
+      dados.genero === (indicacao.genero || '') &&
+      dados.motivo === (indicacao.motivo || '')) return;
+  if (!confirm('Salvar as alterações desta indicação?')) return;
+
+  const { error } = await supabaseClient
+    .from('indicacoes_livro')
+    .update(dados)
+    .eq('id', indicacaoId);
+  if (error) return alert('Erro ao editar indicação: ' + error.message);
+  await carregarComunidade();
+};
+
+window.editarAvaliacao = async (encontroId, usuarioId) => {
+  if (!estadoApp.usuario || !estadoApp.ehAdminMaster) {
+    return alert('Apenas o Admin Master pode editar avaliações.');
+  }
+
+  const avaliacao = estadoApp.avaliacoes.find(item =>
+    String(item.encontro_id) === String(encontroId) && item.usuario_id === usuarioId
+  );
+  if (!avaliacao) return alert('Esta avaliação não foi encontrada.');
+
+  const valor = prompt('Nova nota (0 a 5):', avaliacao.nota);
+  if (valor === null) return;
+  const nota = Number(valor);
+  if (!Number.isFinite(nota) || nota < 0 || nota > 5) {
+    return alert('A nota deve ser um número entre 0 e 5.');
+  }
+  if (nota === Number(avaliacao.nota)) return;
+  if (!confirm('Salvar a alteração desta avaliação?')) return;
+
+  const { error } = await supabaseClient
+    .from('avaliacoes_livro')
+    .update({ nota, atualizado_em: new Date().toISOString() })
+    .eq('encontro_id', encontroId)
+    .eq('usuario_id', usuarioId);
+  if (error) return alert('Erro ao editar avaliação: ' + error.message);
+  await carregarComunidade();
+  atualizarPlacar();
+  renderizarTela();
+};
+
+window.excluirAvaliacao = async (encontroId, usuarioId) => {
+  if (!estadoApp.usuario || !estadoApp.ehAdminMaster) {
+    return alert('Apenas o Admin Master pode excluir avaliações.');
+  }
+
+  const avaliacao = estadoApp.avaliacoes.find(item =>
+    String(item.encontro_id) === String(encontroId) && item.usuario_id === usuarioId
+  );
+  if (!avaliacao) return alert('Esta avaliação não foi encontrada.');
+  if (!confirm('Excluir esta avaliação do membro?')) return;
+
+  const { error } = await supabaseClient
+    .from('avaliacoes_livro')
+    .delete()
+    .eq('encontro_id', encontroId)
+    .eq('usuario_id', usuarioId);
+  if (error) return alert('Erro ao excluir avaliação: ' + error.message);
+  await carregarComunidade();
+  atualizarPlacar();
+  renderizarTela();
+};
+
+window.removerVotoAdmin = async (indicacaoId, usuarioId) => {
+  if (!estadoApp.usuario || !estadoApp.ehAdminMaster) {
+    return alert('Apenas o Admin Master pode remover votos de outros membros.');
+  }
+  const voto = estadoApp.votos.find(item =>
+    String(item.indicacao_id) === String(indicacaoId) && item.usuario_id === usuarioId
+  );
+  if (!voto) return alert('Este voto não foi encontrado.');
+
+  const perfil = estadoApp.perfis[usuarioId];
+  if (!confirm(`Remover o voto de ${perfil?.nome || 'este membro'} desta indicação?`)) return;
+
+  const { error } = await supabaseClient
+    .from('votos_indicacao')
+    .delete()
+    .eq('indicacao_id', indicacaoId)
+    .eq('usuario_id', usuarioId);
+  if (error) return alert('Erro ao remover voto: ' + error.message);
+  await carregarComunidade();
+};
+
 function renderizarIndicacoes() {
   const container = document.getElementById('lista-indicacoes');
   if (!container) return;
+  const secao = document.getElementById('espaco-usuarios');
+  if (secao) {
+    secao.classList.toggle('oculto', !estadoApp.usuario && !estadoApp.indicacoes.length);
+  }
+  document.getElementById('form-indicacao')?.classList.toggle('oculto', !estadoApp.usuario);
 
   if (!estadoApp.indicacoes.length) {
-    container.innerHTML = '<small>Nenhuma indicação cadastrada ainda. Seja o primeiro a sugerir uma leitura!</small>';
+    container.innerHTML = estadoApp.usuario
+      ? '<small>Ainda não há indicações publicadas.</small>'
+      : '';
     return;
   }
 
@@ -177,6 +337,35 @@ function renderizarIndicacoes() {
     const perfilAutor = estadoApp.perfis[ind.usuario_id];
     const nomeAutorInd = perfilAutor?.nome || 'Membro do Clube';
     const podeApagar = estadoApp.usuario && (estadoApp.ehAdminMaster || ind.usuario_id === estadoApp.usuario.id);
+    const podeEditar = Boolean(estadoApp.usuario && estadoApp.ehAdminMaster);
+    const botaoVoto = estadoApp.usuario
+      ? `<button
+          type="button"
+          class="${meuVoto ? 'btn-primario' : 'btn-secundario'}"
+          data-action="votar-indicacao"
+          data-id="${ind.id}"
+        >
+          ${meuVoto ? '🗳️ Votado' : '🗳️ Votar'} (${totalVotos})
+        </button>`
+      : `<span class="indicacao-total-votos">🗳️ ${totalVotos} voto${totalVotos === 1 ? '' : 's'}</span>`;
+    const gerenciamentoVotos = podeEditar && votosDaIndicacao.length
+        ? `
+          <details class="admin-votos">
+            <summary>Gerenciar votos</summary>
+            <div class="admin-votos-lista">
+              ${votosDaIndicacao.map(voto => {
+                const perfil = estadoApp.perfis[voto.usuario_id] || {};
+                return `
+                  <div class="admin-voto-item">
+                    <span>${escaparHTML(perfil.nome || 'Membro do Clube')}</span>
+                    <button type="button" class="btn-perigo btn-mini" data-action="remover-voto-admin" data-id="${ind.id}" data-usuario-id="${escaparHTML(voto.usuario_id)}">Remover voto</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </details>
+        `
+        : '';
 
     return `
       <div class="indicacao-card">
@@ -191,16 +380,11 @@ function renderizarIndicacoes() {
           ${ind.motivo ? `<p class="indicacao-motivo">${escaparHTML(ind.motivo)}</p>` : ''}
         </div>
         <div class="indicacao-acoes">
-          <button
-            type="button"
-            class="${meuVoto ? 'btn-primario' : 'btn-secundario'}"
-            data-action="votar-indicacao"
-            data-id="${ind.id}"
-          >
-            ${meuVoto ? '🗳️ Votado' : '🗳️ Votar'} (${totalVotos})
-          </button>
+          ${botaoVoto}
+          ${podeEditar ? `<button type="button" class="btn-secundario btn-mini" data-action="editar-indicacao" data-id="${ind.id}">Editar</button>` : ''}
           ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-indicacao" data-id="${ind.id}">🗑️</button>` : ''}
         </div>
+        ${gerenciamentoVotos}
       </div>
     `;
   }).join('');
@@ -237,8 +421,9 @@ async function carregarComunidade() {
 
 async function carregarProgressoLeitura() {
   estadoApp.progressoLeitura = [];
+  estadoApp.metasLeitura = null;
+  estadoApp.progressoPublicado = null;
   if (!estadoApp.usuario) {
-    estadoApp.progressoPublicado = null;
     renderizarAcompanhamentoLeitura();
     return;
   }
@@ -246,24 +431,26 @@ async function carregarProgressoLeitura() {
   const atual = estadoApp.encontros.find(
     item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
   );
-  if (!atual) {
-    estadoApp.progressoPublicado = null;
-    renderizarAcompanhamentoLeitura();
-    return;
-  }
+  const consultaPublicacao = atual
+    ? supabaseClient
+        .from('progresso_leitura_compartilhado')
+        .select('mostrar_nome,mostrar_foto')
+        .eq('usuario_id', estadoApp.usuario.id)
+        .eq('encontro_id', atual.id)
+        .maybeSingle()
+    : Promise.resolve({ data: null, error: null });
 
-  const [resProgresso, resPublicacao] = await Promise.all([
+  const [resProgresso, resPublicacao, resMetas] = await Promise.all([
     supabaseClient
       .from('progresso_leitura')
       .select('*')
       .eq('usuario_id', estadoApp.usuario.id)
-      .eq('encontro_id', atual.id)
       .order('data_leitura', { ascending: true }),
+    consultaPublicacao,
     supabaseClient
-      .from('progresso_leitura_compartilhado')
-      .select('mostrar_nome,mostrar_foto')
+      .from('metas_leitura')
+      .select('paginas_dia,paginas_semana')
       .eq('usuario_id', estadoApp.usuario.id)
-      .eq('encontro_id', atual.id)
       .maybeSingle()
   ]);
 
@@ -279,6 +466,13 @@ async function carregarProgressoLeitura() {
   } else {
     estadoApp.progressoPublicado = resPublicacao.data || null;
   }
+
+  if (resMetas.error) {
+    console.warn('Erro ao carregar metas pessoais:', resMetas.error.message);
+  } else {
+    estadoApp.metasLeitura = resMetas.data || null;
+  }
+
   renderizarAcompanhamentoLeitura();
 }
 
@@ -345,6 +539,12 @@ window.salvarProgressoLeitura = async (dataLeitura, paginas) => {
   if (dataLeitura > hojeISO) {
     return alert('A data da leitura não pode estar no futuro.');
   }
+  const registroExistente = estadoApp.progressoLeitura.find(item =>
+    String(item.encontro_id) === String(atual.id) && item.data_leitura === dataLeitura
+  );
+  if (registroExistente &&
+      Number(registroExistente.paginas_lidas) !== paginasInt &&
+      !confirm('Já existe um registro nesta data. Deseja substituir a quantidade de páginas?')) return;
 
   const { error } = await supabaseClient
     .from('progresso_leitura')
@@ -360,6 +560,57 @@ window.salvarProgressoLeitura = async (dataLeitura, paginas) => {
   limparCartaoProgresso();
   await carregarProgressoLeitura();
   await carregarMetricasGrupo();
+};
+
+window.salvarMetasLeitura = async (paginasDia, paginasSemana) => {
+  if (!estadoApp.usuario) return alert('Entre na sua conta para salvar suas metas.');
+
+  const lerMeta = (valor, nome, limite) => {
+    if (valor === '') return 0;
+    const meta = Number(valor);
+    if (!Number.isInteger(meta) || meta < 0 || meta > limite) {
+      throw new Error(`A meta de ${nome} deve ser um número inteiro entre 0 e ${limite}.`);
+    }
+    return meta;
+  };
+
+  let metaDia;
+  let metaSemana;
+  try {
+    metaDia = lerMeta(paginasDia, 'páginas por dia', 10000);
+    metaSemana = lerMeta(paginasSemana, 'páginas por semana', 70000);
+  } catch (error) {
+    return alert(error.message);
+  }
+  const metaAtualizada = estadoApp.metasLeitura &&
+    (Number(estadoApp.metasLeitura.paginas_dia) !== metaDia ||
+      Number(estadoApp.metasLeitura.paginas_semana) !== metaSemana);
+  if (metaAtualizada) {
+    const mensagem = metaDia || metaSemana
+      ? 'Salvar as alterações das suas metas de leitura?'
+      : 'Desativar e remover suas metas de leitura?';
+    if (!confirm(mensagem)) return;
+  }
+
+  const operacao = metaDia === 0 && metaSemana === 0
+    ? supabaseClient
+        .from('metas_leitura')
+        .delete()
+        .eq('usuario_id', estadoApp.usuario.id)
+    : supabaseClient
+        .from('metas_leitura')
+        .upsert({
+          usuario_id: estadoApp.usuario.id,
+          paginas_dia: metaDia,
+          paginas_semana: metaSemana,
+          atualizado_em: new Date().toISOString()
+        }, { onConflict: 'usuario_id' });
+
+  const { error } = await operacao;
+  if (error) return alert('Erro ao salvar metas: ' + error.message);
+
+  await carregarProgressoLeitura();
+  alert(metaDia || metaSemana ? 'Metas de leitura atualizadas.' : 'Metas de leitura desativadas.');
 };
 
 window.excluirProgressoLeitura = async (dataLeitura) => {
@@ -405,10 +656,17 @@ window.salvarPreferenciaCompartilhamento = async () => {
   const publicar = document.getElementById('progresso-publicado-site').checked;
   const mostrarNome = document.getElementById('progresso-incluir-nome').checked;
   const mostrarFoto = document.getElementById('progresso-incluir-foto').checked;
+  const registrosAtuais = estadoApp.progressoLeitura.filter(item => item.encontro_id === atual.id);
 
-  if (publicar && !estadoApp.progressoLeitura.some(item => Number(item.paginas_lidas) > 0)) {
+  if (publicar && !registrosAtuais.some(item => Number(item.paginas_lidas) > 0)) {
     return alert('Registre pelo menos um dia de leitura antes de publicar seu cartão.');
   }
+  if (!publicar && estadoApp.progressoPublicado &&
+      !confirm('Remover seu cartão da seção pública do site?')) return;
+  if (publicar && estadoApp.progressoPublicado &&
+      (mostrarNome !== estadoApp.progressoPublicado.mostrar_nome ||
+        mostrarFoto !== estadoApp.progressoPublicado.mostrar_foto) &&
+      !confirm('Salvar as alterações nas opções públicas do seu cartão?')) return;
 
   const operacao = publicar
     ? supabaseClient
@@ -442,7 +700,8 @@ function obterDadosCartaoProgresso() {
   );
   if (!atual || !estadoApp.usuario) return null;
 
-  const paginasLidas = estadoApp.progressoLeitura.reduce(
+  const registrosAtuais = estadoApp.progressoLeitura.filter(item => item.encontro_id === atual.id);
+  const paginasLidas = registrosAtuais.reduce(
     (total, item) => total + (Number(item.paginas_lidas) || 0),
     0
   );

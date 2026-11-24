@@ -177,8 +177,12 @@ async function sairDaConta() {
   estadoApp.usuario = null;
   estadoApp.perfilUsuario = null;
   estadoApp.progressoLeitura = [];
+  estadoApp.metasLeitura = null;
   estadoApp.progressoPublicado = null;
   limparCartaoProgresso();
+  document.getElementById('meta-paginas-dia').value = '';
+  document.getElementById('meta-paginas-semana').value = '';
+  document.getElementById('painel-metas-leitura').innerHTML = '';
   document.getElementById('progresso-incluir-nome').checked = false;
   document.getElementById('progresso-incluir-foto').checked = false;
   document.getElementById('progresso-publicado-site').checked = false;
@@ -187,6 +191,10 @@ async function sairDaConta() {
 
 window.alternarPermissaoResenha = async (userId, novoValor) => {
   if (!estadoApp.ehAdminMaster) return alert('Apenas o Admin Master pode alterar permissões.');
+  const perfil = estadoApp.perfis[userId];
+  if (!confirm(`${novoValor ? 'Habilitar' : 'Revogar'} a permissão de publicar resenhas para ${perfil?.nome || 'este membro'}?`)) {
+    return;
+  }
 
   const { error } = await supabaseClient
     .from('perfis_clube')
@@ -196,6 +204,31 @@ window.alternarPermissaoResenha = async (userId, novoValor) => {
   if (error) {
     return alert('Não foi possível alterar permissão: ' + error.message);
   }
+
+  await carregarPerfis();
+  atualizarInterfaceSessao();
+};
+
+window.editarPerfilMembro = async (userId) => {
+  if (!estadoApp.ehAdminMaster) return alert('Apenas o Admin Master pode editar perfis.');
+  const perfil = estadoApp.perfis[userId];
+  if (!perfil) return alert('Selecione um perfil para editar.');
+
+  const nome = prompt('Nome ou apelido público:', perfil.nome || '');
+  if (nome === null) return;
+  const fotoUrl = prompt('URL da foto de perfil (deixe vazio para usar o avatar padrão):', perfil.foto_url || '');
+  if (fotoUrl === null) return;
+
+  const dados = { nome: nome.trim(), foto_url: fotoUrl.trim() };
+  if (!dados.nome) return alert('O nome ou apelido não pode ficar vazio.');
+  if (dados.nome === perfil.nome && dados.foto_url === (perfil.foto_url || '')) return;
+  if (!confirm(`Salvar as alterações do perfil de ${perfil.nome}?`)) return;
+
+  const { error } = await supabaseClient
+    .from('perfis_clube')
+    .update(dados)
+    .eq('id', userId);
+  if (error) return alert('Erro ao editar perfil: ' + error.message);
 
   await carregarPerfis();
   atualizarInterfaceSessao();

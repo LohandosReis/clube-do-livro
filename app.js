@@ -34,6 +34,7 @@ document.getElementById('form-resenha-individual').onsubmit = async (e) => {
   if (nota !== null && (Number.isNaN(nota) || nota < 0 || nota > 5)) {
     return alert('A nota deve estar entre 0 e 5.');
   }
+  if (editId && !confirm(`Salvar as alterações da resenha “${titulo}”?`)) return;
 
   btn.disabled = true;
   btn.textContent = editId ? 'Salvando...' : 'Publicando...';
@@ -267,17 +268,35 @@ function registrarEventos() {
       case 'apagar-comentario':
         apagarComentario(Number(id));
         break;
+      case 'editar-comentario':
+        editarComentario(Number(id));
+        break;
       case 'votar-indicacao':
         alternarVotoIndicacao(Number(id));
         break;
       case 'apagar-indicacao':
         apagarIndicacao(Number(id));
         break;
+      case 'editar-indicacao':
+        editarIndicacao(Number(id));
+        break;
+      case 'remover-voto-admin':
+        removerVotoAdmin(Number(id), acao.dataset.usuarioId);
+        break;
+      case 'editar-avaliacao':
+        editarAvaliacao(Number(id), acao.dataset.usuarioId);
+        break;
+      case 'excluir-avaliacao':
+        excluirAvaliacao(Number(id), acao.dataset.usuarioId);
+        break;
       case 'remover-foto':
         removerFotoExistente(Number(id));
         break;
       case 'alternar-permissao':
         alternarPermissaoResenha(id, acao.dataset.novoValor === 'true');
+        break;
+      case 'editar-perfil-membro':
+        editarPerfilMembro(id);
         break;
       case 'excluir-progresso-leitura':
         excluirProgressoLeitura(acao.dataset.data);
@@ -342,6 +361,24 @@ function registrarEventos() {
     }
   };
 
+  document.getElementById('form-metas-leitura').onsubmit = async (event) => {
+    event.preventDefault();
+    const botao = document.getElementById('btn-salvar-metas');
+    botao.disabled = true;
+    botao.textContent = 'Salvando...';
+    try {
+      await salvarMetasLeitura(
+        document.getElementById('meta-paginas-dia').value,
+        document.getElementById('meta-paginas-semana').value
+      );
+    } finally {
+      botao.disabled = false;
+      botao.textContent = 'Salvar metas';
+    }
+  };
+
+  document.getElementById('arquivo-ano').onchange = renderizarArquivoAnualLeitura;
+
   document.getElementById('btn-gerar-cartao-progresso').onclick = gerarCartaoProgresso;
   document.getElementById('btn-compartilhar-cartao-progresso').onclick = compartilharCartaoProgresso;
   document.getElementById('btn-baixar-cartao-progresso').onclick = baixarCartaoProgresso;
@@ -399,11 +436,15 @@ function registrarEventos() {
     }
 
     const btnSalvar = document.getElementById('btn-salvar-modulo');
+    const editId = document.getElementById('edit-id').value;
+    if (editId) {
+      const livroAtual = estadoApp.encontros.find(item => String(item.id) === String(editId));
+      if (!confirm(`Salvar as alterações de “${livroAtual?.titulo || 'este registro'}”?`)) return;
+    }
     btnSalvar.disabled = true;
     btnSalvar.textContent = 'Processando e salvando...';
 
     try {
-      const editId = document.getElementById('edit-id').value;
       let urlsFotos = editId ? [...estadoApp.fotosEmEdicao] : [];
       const arquivos = document.getElementById('encontro-fotos').files;
 
@@ -463,6 +504,7 @@ function registrarEventos() {
   document.getElementById('form-guia').onsubmit = async (e) => {
     e.preventDefault();
     if (!estadoApp.ehAdminMaster) return alert('Apenas o Admin Master pode editar o guia.');
+    if (!confirm('Salvar as alterações do guia de discussão?')) return;
 
     const btn = document.getElementById('btn-salvar-guia');
     btn.disabled = true;

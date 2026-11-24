@@ -65,6 +65,7 @@ const estadoApp = {
   indicacoes: [],
   votos: [],
   progressoLeitura: [],
+  metasLeitura: null,
   metricasGrupo: null,
   cartoesProgressoPublicos: [],
   progressoPublicado: null,

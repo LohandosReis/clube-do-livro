@@ -120,6 +120,15 @@ create table if not exists public.progresso_leitura_compartilhado (
 alter table public.progresso_leitura_compartilhado
   add column if not exists mostrar_foto boolean not null default false;
 
+create table if not exists public.metas_leitura (
+  usuario_id uuid primary key references auth.users(id) on delete cascade,
+  paginas_dia integer not null default 0,
+  paginas_semana integer not null default 0,
+  atualizado_em timestamptz not null default now(),
+  constraint metas_paginas_validas
+    check (paginas_dia >= 0 and paginas_semana >= 0)
+);
+
 alter table public.encontros add column if not exists paginas_totais integer not null default 0;
 alter table public.encontros add column if not exists pagina_meta integer not null default 0;
 alter table public.encontros add column if not exists nota numeric(3,1);
@@ -137,6 +146,7 @@ alter table public.indicacoes_livro enable row level security;
 alter table public.votos_indicacao enable row level security;
 alter table public.progresso_leitura enable row level security;
 alter table public.progresso_leitura_compartilhado enable row level security;
+alter table public.metas_leitura enable row level security;
 
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'encontro_paginas_validas') then
@@ -226,6 +236,17 @@ create policy "avaliacoes_proprio" on public.avaliacoes_livro
   for all using (usuario_id = auth.uid())
   with check (usuario_id = auth.uid());
 
+drop policy if exists "avaliacoes_admin_editar" on public.avaliacoes_livro;
+create policy "avaliacoes_admin_editar" on public.avaliacoes_livro
+  for update using (public.clube_e_admin())
+  with check (public.clube_e_admin());
+
+drop policy if exists "avaliacoes_admin_excluir" on public.avaliacoes_livro;
+create policy "avaliacoes_admin_excluir" on public.avaliacoes_livro
+  for delete using (public.clube_e_admin());
+
+grant update, delete on table public.avaliacoes_livro to authenticated;
+
 drop policy if exists "comentarios_leitura_publica" on public.comentarios_livro;
 create policy "comentarios_leitura_publica" on public.comentarios_livro
   for select using (true);
@@ -240,6 +261,13 @@ create policy "comentarios_excluir_proprio_admin" on public.comentarios_livro
     usuario_id = auth.uid()
     or public.clube_e_admin()
   );
+
+drop policy if exists "comentarios_admin_editar" on public.comentarios_livro;
+create policy "comentarios_admin_editar" on public.comentarios_livro
+  for update using (public.clube_e_admin())
+  with check (public.clube_e_admin());
+
+grant update on table public.comentarios_livro to authenticated;
 
 drop policy if exists "indicacoes_leitura_publica" on public.indicacoes_livro;
 create policy "indicacoes_leitura_publica" on public.indicacoes_livro
@@ -256,6 +284,13 @@ create policy "indicacoes_excluir_proprio_admin" on public.indicacoes_livro
     or public.clube_e_admin()
   );
 
+drop policy if exists "indicacoes_admin_editar" on public.indicacoes_livro;
+create policy "indicacoes_admin_editar" on public.indicacoes_livro
+  for update using (public.clube_e_admin())
+  with check (public.clube_e_admin());
+
+grant update on table public.indicacoes_livro to authenticated;
+
 drop policy if exists "votos_leitura_publica" on public.votos_indicacao;
 create policy "votos_leitura_publica" on public.votos_indicacao
   for select using (true);
@@ -264,6 +299,12 @@ drop policy if exists "votos_proprio" on public.votos_indicacao;
 create policy "votos_proprio" on public.votos_indicacao
   for all using (usuario_id = auth.uid())
   with check (usuario_id = auth.uid());
+
+drop policy if exists "votos_admin_excluir" on public.votos_indicacao;
+create policy "votos_admin_excluir" on public.votos_indicacao
+  for delete using (public.clube_e_admin());
+
+grant delete on table public.votos_indicacao to authenticated;
 
 drop policy if exists "progresso_leitura_proprio" on public.progresso_leitura;
 create policy "progresso_leitura_proprio" on public.progresso_leitura
@@ -281,6 +322,15 @@ create policy "progresso_compartilhado_proprio" on public.progresso_leitura_comp
 
 grant select, insert, update, delete
   on table public.progresso_leitura_compartilhado
+  to authenticated;
+
+drop policy if exists "metas_leitura_proprias" on public.metas_leitura;
+create policy "metas_leitura_proprias" on public.metas_leitura
+  for all using (usuario_id = auth.uid())
+  with check (usuario_id = auth.uid());
+
+grant select, insert, update, delete
+  on table public.metas_leitura
   to authenticated;
 
 create or replace function public.clube_metricas_grupo(p_encontro_id bigint)

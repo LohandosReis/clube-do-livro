@@ -37,8 +37,7 @@ A aplicação está dividida em duas experiências principais:
    - histórico de leituras;
    - filtros por tipo, status, gênero e texto;
    - guia editável de discussão;
-   - indicações públicas;
-   - comentários e notas públicas.
+   - indicações, comentários, avaliações e resenhas já publicados pelos membros.
 
 2. **Espaço autenticado**, disponível após cadastro ou login:
    - avaliação de livros;
@@ -90,7 +89,9 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Upload de fotos com compressão no navegador.
 - Remoção individual de fotos já cadastradas.
 - Edição do título e conteúdo do guia de discussão.
-- Listagem de membros e alteração da permissão de publicar resenhas individuais.
+- Listagem de membros, edição de nome/foto e alteração da permissão de publicar resenhas individuais.
+- Edição e remoção de qualquer livro, resenha, comentário, indicação ou avaliação pública; também pode remover votos.
+- Confirmação explícita antes de salvar edições ou excluir conteúdo.
 
 ### Comunidade
 
@@ -103,7 +104,8 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Voto único por membro em cada indicação.
 - Ordenação das indicações pela quantidade de votos.
 - Exclusão do próprio comentário ou indicação.
-- O administrador também pode excluir comentários e indicações.
+- Visitantes sem login podem apenas visualizar conteúdo já publicado; formulários, votação, avaliação e comentários só aparecem para membros autenticados.
+- O Admin Master pode editar ou remover perfis públicos, comentários, indicações e avaliações de qualquer membro, além de remover votos.
 
 ### Acompanhamento pessoal
 
@@ -115,6 +117,10 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Mostra o recorde pessoal de dias consecutivos, páginas restantes e ritmo diário necessário até o próximo encontro.
 - Inclui gráfico semanal e mapa de atividade das últimas 12 semanas.
 - Um mapa visual de 84 dias usa blocos coloridos para representar o desempenho diário.
+- Metas pessoais configuráveis de páginas por dia e por semana; deixar o campo vazio ou informar zero desativa a meta.
+- As barras de desempenho das metas consideram todos os registros pessoais, inclusive de livros anteriores.
+- Arquivo anual privado dos livros do clube concluídos, com páginas registradas, dias de leitura e quantidade de livros por ano.
+- Os registros são preservados quando o clube conclui um livro e agrupados pelo ano de `data_leitura`.
 - O cartão individual pode ser gerado, baixado ou compartilhado; incluir o nome é opcional.
 - A foto do perfil no cartão também pode ser incluída ou omitida.
 - A publicação do cartão no site é opt-in e pode ser retirada pela própria pessoa.
@@ -246,7 +252,7 @@ O script:
 - cria o bucket público `fotos-clube`;
 - cria as políticas de upload e exclusão de imagens.
 
-O script foi escrito para preservar tabelas existentes e adicionar colunas quando necessário.
+O script foi escrito para preservar tabelas existentes e adicionar colunas quando necessário. Se já executou uma versão anterior, execute novamente o arquivo completo para aplicar as tabelas, políticas e permissões mais recentes.
 
 ### 2. Configurar autenticação
 
@@ -433,6 +439,19 @@ Armazena apenas a decisão explícita de publicar um cartão e se o nome pode ap
 
 Chave primária composta: `(usuario_id, encontro_id)`. A tabela não permite leitura pública direta; a função `clube_cartoes_progresso_publicos()` retorna apenas dados dos cartões publicados, sem IDs de conta. A pessoa pode revogar a publicação pela própria interface.
 
+### `metas_leitura`
+
+Armazena as metas privadas de cada usuário. Há uma linha por conta:
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `usuario_id` | `uuid` | Dono das metas e chave primária. |
+| `paginas_dia` | `integer` | Meta diária; zero significa desativada. |
+| `paginas_semana` | `integer` | Meta semanal; zero significa desativada. |
+| `atualizado_em` | `timestamptz` | Última atualização da linha. |
+
+O histórico anual não exige uma tabela separada: é calculado a partir dos registros privados em `progresso_leitura`, agrupando por ano de `data_leitura` e exibindo livros do clube com status `lido`.
+
 ## Segurança e permissões
 
 As tabelas usam RLS (Row Level Security). As regras principais são:
@@ -453,10 +472,12 @@ Todas as tabelas de conteúdo e perfis permitem leitura pública.
 - um membro habilitado pode criar postagens do tipo `individual`;
 - o membro só pode editar ou excluir suas próprias resenhas individuais;
 - publicações do tipo `clube` não podem ser criadas por membros comuns.
+- o Admin Master pode editar e excluir qualquer leitura ou resenha pública.
 
 ### Progresso de leitura
 
 - cada usuário pode ler, editar e apagar apenas seus próprios registros diários;
+- cada usuário pode consultar e alterar somente suas metas em `metas_leitura`;
 - o Admin Master não tem leitura direta desses registros;
 - `clube_metricas_grupo()` retorna somente totais coletivos, sem IDs ou linhas individuais;
 - `clube_cartoes_progresso_publicos()` retorna somente cartões publicados explicitamente;
@@ -466,13 +487,14 @@ Todas as tabelas de conteúdo e perfis permitem leitura pública.
 
 - qualquer pessoa pode ler;
 - o usuário só pode criar ou alterar avaliações vinculadas ao próprio `usuario_id`;
+- o Admin Master pode editar ou excluir avaliações de qualquer membro;
 - existe uma única avaliação por par usuário/livro.
 
 ### Comentários e indicações
 
 - autenticação é necessária para criar;
 - o autor pode excluir seu próprio conteúdo;
-- o administrador pode excluir qualquer conteúdo.
+- o Admin Master pode editar ou excluir qualquer comentário e indicação.
 
 ### Fotos
 
@@ -481,6 +503,8 @@ O bucket `fotos-clube` é público para leitura.
 - somente usuários autenticados podem enviar;
 - o autor ou o administrador pode excluir um objeto;
 - a exclusão chama o Storage após remoção da URL do estado local.
+
+Os registros de metas e progresso pessoal continuam privados para cada membro, inclusive para o Admin Master; as permissões administrativas abrangem o conteúdo público do site.
 
 ### Função administrativa
 

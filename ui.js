@@ -96,6 +96,7 @@ function renderizarFotosEmEdicao() {
 
 window.removerFotoExistente = async (index) => {
   const url = estadoApp.fotosEmEdicao[index];
+  if (url && !confirm('Remover esta foto já publicada?')) return;
   estadoApp.fotosEmEdicao.splice(index, 1);
   renderizarFotosEmEdicao();
 
@@ -133,17 +134,26 @@ function renderizarUsuariosAdmin() {
             <small>${escaparHTML(p.email || '')}</small>
           </div>
         </div>
-        ${isMasterItem
-          ? '<small>Permissão total</small>'
-          : `<button
+        <div class="acoes-usuario-admin">
+          ${isMasterItem
+            ? '<small>Permissão total</small>'
+            : ''}
+             <button
                type="button"
-               class="${habilitado ? 'btn-primario' : 'btn-secundario'}"
-               data-action="alternar-permissao"
+               class="btn-secundario"
+               data-action="editar-perfil-membro"
                data-id="${escaparHTML(p.id)}"
-               data-novo-valor="${!habilitado}"
-             >
-               ${habilitado ? '✅ Pode Publicar Resenhas (Clique p/ revogar)' : '🔒 Habilitar Resenhas Individuais'}
-             </button>`}
+             >Editar perfil</button>
+          ${!isMasterItem ? `<button
+            type="button"
+            class="${habilitado ? 'btn-primario' : 'btn-secundario'}"
+            data-action="alternar-permissao"
+            data-id="${escaparHTML(p.id)}"
+            data-novo-valor="${!habilitado}"
+          >
+            ${habilitado ? '✅ Pode Publicar Resenhas (Clique p/ revogar)' : '🔒 Habilitar Resenhas Individuais'}
+          </button>` : ''}
+        </div>
       </div>
     `;
   }).join('');
@@ -177,6 +187,133 @@ function formatoDataLocal(data) {
   return `${ano}-${mes}-${dia}`;
 }
 
+function renderizarMetasLeitura(registros = []) {
+  const painel = document.getElementById('painel-metas-leitura');
+  if (!painel) return;
+
+  const metaDia = Number(estadoApp.metasLeitura?.paginas_dia) || 0;
+  const metaSemana = Number(estadoApp.metasLeitura?.paginas_semana) || 0;
+  const campoDia = document.getElementById('meta-paginas-dia');
+  const campoSemana = document.getElementById('meta-paginas-semana');
+  if (campoDia) campoDia.value = metaDia || '';
+  if (campoSemana) campoSemana.value = metaSemana || '';
+
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const inicioSemana = new Date(hoje);
+  const diaSemana = inicioSemana.getDay();
+  inicioSemana.setDate(inicioSemana.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
+  const hojeISO = formatoDataLocal(hoje);
+  const paginasHoje = registros
+    .filter(item => item.data_leitura === hojeISO)
+    .reduce((total, item) => total + (Number(item.paginas_lidas) || 0), 0);
+  const paginasSemana = registros
+    .filter(item => {
+      const data = new Date(`${item.data_leitura}T00:00:00`);
+      return data >= inicioSemana && data <= hoje;
+    })
+    .reduce((total, item) => total + (Number(item.paginas_lidas) || 0), 0);
+
+  const renderizarBarraMeta = (rotulo, paginas, meta) => {
+    if (!meta) return '';
+    const percentual = Math.min(100, Math.round(paginas / meta * 100));
+    return `
+      <div class="meta-leitura-item">
+        <div class="meta-leitura-rotulo">
+          <strong>${rotulo}</strong>
+          <span>${paginas} de ${meta} páginas (${percentual}%)</span>
+        </div>
+        <div class="meta-leitura-fundo" role="progressbar"
+          aria-label="${rotulo}" aria-valuenow="${percentual}" aria-valuemin="0" aria-valuemax="100">
+          <div class="meta-leitura-valor" style="width:${percentual}%"></div>
+        </div>
+      </div>
+    `;
+  };
+
+  const metasHTML = [
+    renderizarBarraMeta('Meta diária', paginasHoje, metaDia),
+    renderizarBarraMeta('Meta semanal', paginasSemana, metaSemana)
+  ].filter(Boolean);
+
+  painel.innerHTML = metasHTML.length
+    ? `<div class="metas-leitura-lista">${metasHTML.join('')}</div>`
+    : '<p class="metas-leitura-vazio">Defina uma meta diária ou semanal para acompanhar seu ritmo.</p>';
+}
+
+function renderizarArquivoAnualLeitura() {
+  const seletor = document.getElementById('arquivo-ano');
+  const conteudo = document.getElementById('arquivo-anual-conteudo');
+  if (!seletor || !conteudo) return;
+
+  const livrosConcluidos = new Map(
+    estadoApp.encontros
+      .filter(item => item.status === 'lido' && (item.tipo_postagem || 'clube') === 'clube')
+      .map(item => [String(item.id), item])
+  );
+  const registrosConcluidos = (estadoApp.progressoLeitura || [])
+    .filter(item =>
+      livrosConcluidos.has(String(item.encontro_id)) &&
+      Number(item.paginas_lidas) > 0
+    );
+  const anos = [...new Set(registrosConcluidos
+    .map(item => String(item.data_leitura).slice(0, 4))
+    .filter(ano => /^\d{4}$/.test(ano)))]
+    .sort((a, b) => b.localeCompare(a));
+  const anoAnterior = seletor.value;
+
+  seletor.innerHTML = anos
+    .map(ano => `<option value="${ano}">${ano}</option>`)
+    .join('');
+  seletor.disabled = anos.length === 0;
+
+  if (!anos.length) {
+    conteudo.innerHTML = '<p>Ainda não há registros pessoais de livros concluídos.</p>';
+    return;
+  }
+
+  seletor.value = anos.includes(anoAnterior) ? anoAnterior : anos[0];
+  const registrosAno = registrosConcluidos.filter(
+    item => String(item.data_leitura).startsWith(`${seletor.value}-`)
+  );
+  const porLivro = new Map();
+  const dias = new Set();
+  let totalPaginas = 0;
+
+  registrosAno.forEach(item => {
+    const chaveLivro = String(item.encontro_id);
+    const paginas = Number(item.paginas_lidas) || 0;
+    const livro = livrosConcluidos.get(chaveLivro);
+    totalPaginas += paginas;
+    if (paginas > 0) dias.add(item.data_leitura);
+    const resumo = porLivro.get(chaveLivro) || { livro, paginas: 0 };
+    resumo.paginas += paginas;
+    porLivro.set(chaveLivro, resumo);
+  });
+
+  const livros = [...porLivro.values()].sort((a, b) => b.paginas - a.paginas);
+  conteudo.innerHTML = `
+    <div class="metricas-leitura arquivo-anual-metricas">
+      <div class="metrica-leitura"><strong>${totalPaginas}</strong><span>Páginas lidas</span></div>
+      <div class="metrica-leitura"><strong>${dias.size}</strong><span>Dias com leitura</span></div>
+      <div class="metrica-leitura"><strong>${livros.length}</strong><span>Livros concluídos</span></div>
+    </div>
+    <div class="arquivo-anual-tabela-wrap">
+      <table class="arquivo-anual-tabela">
+        <thead><tr><th>Livro</th><th>Páginas registradas</th></tr></thead>
+        <tbody>
+          ${livros.map(item => `
+            <tr>
+              <td>${escaparHTML(item.livro.titulo || 'Livro sem título')}</td>
+              <td>${item.paginas}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderizarAcompanhamentoLeitura() {
   const secao = document.getElementById('acompanhamento-leitura');
   const tituloLivro = document.getElementById('acompanhamento-livro');
@@ -196,12 +333,18 @@ function renderizarAcompanhamentoLeitura() {
   }
 
   secao.classList.remove('oculto');
+  const todosRegistros = estadoApp.progressoLeitura || [];
+  renderizarMetasLeitura(todosRegistros);
+  renderizarArquivoAnualLeitura();
 
   if (!atual) {
     tituloLivro.textContent = 'Não há uma leitura atual definida pelo clube.';
     painel.innerHTML = '<p>Nenhum livro em andamento está disponível para acompanhamento.</p>';
     formulario.classList.add('oculto');
     compartilhamento.classList.add('oculto');
+    document.getElementById('progresso-incluir-nome').checked = false;
+    document.getElementById('progresso-incluir-foto').checked = false;
+    document.getElementById('progresso-publicado-site').checked = false;
     return;
   }
 
@@ -223,7 +366,7 @@ function renderizarAcompanhamentoLeitura() {
   inicioSemana.setDate(inicioSemana.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1));
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
-  const registros = estadoApp.progressoLeitura || [];
+  const registros = todosRegistros.filter(item => String(item.encontro_id) === String(atual.id));
   const mapa = {};
   registros.forEach(item => {
     mapa[item.data_leitura] = Number(item.paginas_lidas) || 0;
@@ -570,13 +713,16 @@ function renderizarTagsGenero(generoValor) {
 
 function renderizarBlocoComentarios(encontroId) {
   const comentariosDoLivro = estadoApp.comentarios.filter(c => c.encontro_id === encontroId);
+  if (!estadoApp.usuario && !comentariosDoLivro.length) return '';
 
   const listaHTML = comentariosDoLivro.length
     ? comentariosDoLivro.map(c => {
         const perfil = estadoApp.perfis[c.usuario_id] || {};
         const nome = perfil.nome || 'Membro do Clube';
         const foto = perfil.foto_url || avatarPadrao(nome);
-        const podeApagar = estadoApp.usuario && (estadoApp.ehAdminMaster || c.usuario_id === estadoApp.usuario.id);
+        const ehAdmin = Boolean(estadoApp.usuario && estadoApp.ehAdminMaster);
+        const podeApagar = estadoApp.usuario &&
+          (ehAdmin || c.usuario_id === estadoApp.usuario.id);
         return `
           <div class="comentario-item">
             <img class="comentario-avatar" src="${escaparHTML(foto)}" alt="${escaparHTML(nome)}" loading="lazy">
@@ -584,6 +730,7 @@ function renderizarBlocoComentarios(encontroId) {
               <div class="comentario-topo">
                 <strong>${escaparHTML(nome)}</strong>
                 <small>${escaparHTML(formatarDataHoraBR(c.criado_em))}</small>
+                ${ehAdmin ? `<button type="button" class="btn-secundario btn-mini" data-action="editar-comentario" data-id="${c.id}">Editar</button>` : ''}
                 ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-comentario" data-id="${c.id}">×</button>` : ''}
               </div>
               <p class="comentario-texto">${escaparHTML(c.texto)}</p>
@@ -591,16 +738,22 @@ function renderizarBlocoComentarios(encontroId) {
           </div>
         `;
       }).join('')
-    : '<small>Nenhum comentário ainda. Deixe sua impressão sobre o livro!</small>';
+    : '<small>Ainda não há comentários publicados para este livro.</small>';
+
+  const formularioComentario = estadoApp.usuario
+    ? `
+      <div class="comentario-form">
+        <textarea id="comentario-input-${encontroId}" rows="2" placeholder="Escreva um comentário..."></textarea>
+        <button type="button" class="btn-secundario btn-mini" data-action="comentar-livro" data-id="${encontroId}">Comentar</button>
+      </div>
+    `
+    : '';
 
   return `
     <div class="comentarios-box">
       <h4 class="comentarios-titulo">💬 Comentários dos Membros (${comentariosDoLivro.length})</h4>
       <div class="comentarios-lista">${listaHTML}</div>
-      <div class="comentario-form">
-        <textarea id="comentario-input-${encontroId}" rows="2" placeholder="${estadoApp.usuario ? 'Escreva um comentário...' : 'Entre na sua conta para comentar...'}"></textarea>
-        <button type="button" class="btn-secundario btn-mini" data-action="comentar-livro" data-id="${encontroId}">Comentar</button>
-      </div>
+      ${formularioComentario}
     </div>
   `;
 }
@@ -685,9 +838,56 @@ function renderizarTela() {
       : '';
 
     const infoMedia = calcularMediaLivro(item.id, item.nota);
+    const avaliacoesLivro = estadoApp.avaliacoes.filter(
+      avaliacao => String(avaliacao.encontro_id) === String(item.id)
+    );
     const minhaAvaliacao = estadoApp.usuario
       ? estadoApp.avaliacoes.find(a => a.encontro_id === item.id && a.usuario_id === estadoApp.usuario.id)
       : null;
+    const controlesAvaliacao = estadoApp.usuario
+      ? `
+        <div class="avaliacao-livro-box">
+          <label for="nota-input-${item.id}">⭐ Sua nota para este livro (0 a 5):</label>
+          <div class="avaliacao-controles">
+            <input
+              type="number"
+              id="nota-input-${item.id}"
+              class="input-nota-livro"
+              min="0"
+              max="5"
+              step="0.1"
+              value="${minhaAvaliacao ? escaparHTML(minhaAvaliacao.nota) : ''}"
+              placeholder="Ex: 4.5"
+            >
+            <button type="button" class="btn-primario btn-mini" data-action="avaliar-livro" data-id="${item.id}">
+              ${minhaAvaliacao ? 'Atualizar Nota' : 'Avaliar Livro'}
+            </button>
+          </div>
+        </div>
+      `
+      : '';
+    const controlesAdminAvaliacoes = estadoApp.ehAdminMaster && avaliacoesLivro.length
+      ? `
+        <details class="admin-avaliacoes">
+          <summary>Gerenciar avaliações (${avaliacoesLivro.length})</summary>
+          <div class="admin-avaliacoes-lista">
+            ${avaliacoesLivro.map(avaliacao => {
+              const perfil = estadoApp.perfis[avaliacao.usuario_id] || {};
+              const nome = perfil.nome || 'Membro do Clube';
+              return `
+                <div class="admin-avaliacao-item">
+                  <span><strong>${escaparHTML(nome)}</strong>: ${escaparHTML(avaliacao.nota)}/5</span>
+                  <div>
+                    <button type="button" class="btn-secundario btn-mini" data-action="editar-avaliacao" data-id="${avaliacao.encontro_id}" data-usuario-id="${escaparHTML(avaliacao.usuario_id)}">Editar</button>
+                    <button type="button" class="btn-perigo btn-mini" data-action="excluir-avaliacao" data-id="${avaliacao.encontro_id}" data-usuario-id="${escaparHTML(avaliacao.usuario_id)}">Excluir</button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </details>
+      `
+      : '';
 
     const badgeIndividual = ehIndividual
       ? `<span class="tag tag-individual">✍️ Resenha Individual${item.autor_postagem_nome ? ` • ${escaparHTML(item.autor_postagem_nome)}` : ''}</span>`
@@ -723,24 +923,8 @@ function renderizarTela() {
             : ''}
           ${fotosHTML ? `<div class="galeria-fotos">${fotosHTML}</div>` : ''}
 
-          <div class="avaliacao-livro-box">
-            <label for="nota-input-${item.id}">⭐ Sua nota para este livro (0 a 5):</label>
-            <div class="avaliacao-controles">
-              <input
-                type="number"
-                id="nota-input-${item.id}"
-                class="input-nota-livro"
-                min="0"
-                max="5"
-                step="0.1"
-                value="${minhaAvaliacao ? escaparHTML(minhaAvaliacao.nota) : ''}"
-                placeholder="Ex: 4.5"
-              >
-              <button type="button" class="btn-primario btn-mini" data-action="avaliar-livro" data-id="${item.id}">
-                ${minhaAvaliacao ? 'Atualizar Nota' : 'Avaliar Livro'}
-              </button>
-            </div>
-          </div>
+          ${controlesAvaliacao}
+          ${controlesAdminAvaliacoes}
 
           ${renderizarBlocoComentarios(item.id)}
         </div>
