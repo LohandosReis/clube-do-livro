@@ -173,21 +173,25 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 
 A aplicação segue uma arquitetura de página única em JavaScript vanilla. Não existe servidor Node.js, framework frontend ou processo de build.
 
-O carregamento ocorre pela seguinte cadeia:
+O código foi separado por responsabilidade em `src/`. O carregamento continua sendo feito por scripts clássicos, sem empacotador, na ordem abaixo:
 
 ```text
 index.html
   ├── Supabase JS
   ├── Browser Image Compression
-  ├── config.js
-  ├── auth.js
-  ├── livros-api.js
-  ├── comunidade.js
-  ├── ui.js
-  └── app.js
+  ├── src/js/core/config.js
+  ├── src/js/auth/auth.js
+  ├── src/js/livros/api.js
+  ├── src/js/comunidade/interacoes.js
+  ├── src/js/leitura/progresso.js
+  ├── src/js/leitura/cartao.js
+  ├── src/js/ui/perfis.js
+  ├── src/js/ui/metricas.js
+  ├── src/js/ui/biblioteca.js
+  └── src/js/app.js
 ```
 
-`config.js` cria o estado global e centraliza utilitários compartilhados. Os outros scripts dependem desses símbolos globais e da instanciação `supabaseClient`.
+`src/js/core/config.js` cria o estado global e centraliza utilitários compartilhados. Os outros scripts usam esses símbolos globais e dependem da ordem de carregamento em `index.html`; mantenha `app.js` por último. Essa organização permite localizar funcionalidades por domínio sem alterar a execução direta da página.
 
 ```text
 Navegador
@@ -222,18 +226,49 @@ Não há dependências de npm declaradas e não é necessário executar `npm ins
 
 ## Estrutura do projeto
 
+```text
+clube-do-livro/
+├── index.html
+├── README.md
+├── supabase-migration.sql
+└── src/
+    ├── css/
+    │   └── style.css
+    └── js/
+        ├── app.js
+        ├── auth/
+        │   └── auth.js
+        ├── comunidade/
+        │   └── interacoes.js
+        ├── core/
+        │   └── config.js
+        ├── leitura/
+        │   ├── progresso.js
+        │   └── cartao.js
+        ├── livros/
+        │   └── api.js
+        └── ui/
+            ├── biblioteca.js
+            ├── metricas.js
+            └── perfis.js
+```
+
 | Arquivo | Responsabilidade |
 |---|---|
-| `index.html` | Estrutura da página, formulários, seções e carregamento dos scripts. |
-| `style.css` | Tema visual, componentes, layout responsivo e animações. |
-| `config.js` | Cliente Supabase, administrador mestre, gêneros, estado global e validação/utilitários de imagem. |
-| `auth.js` | Perfil, sessão, login, cadastro, validação de senha, recuperação de senha, logout e interface de autenticação. |
-| `livros-api.js` | Consultas às APIs externas e preenchimento do formulário administrativo. |
-| `comunidade.js` | Avaliações, comentários, indicações e votos da comunidade. |
-| `ui.js` | Gêneros, fotos, usuários administrativos, placar e renderização da interface. |
-| `app.js` | Inicialização, navegação e histórico de páginas, eventos, CRUD de leituras e resenhas individuais. |
-| `supabase-migration.sql` | Criação das tabelas, funções, índices implícitos, políticas RLS e Storage. |
-| `README.md` | Documentação completa do projeto. |
+| `index.html` | Estrutura, formulários, seções e ordem de carregamento. |
+| `src/css/style.css` | Tema visual, componentes, layout responsivo e animações. |
+| `src/js/core/config.js` | Cliente Supabase, configurações, estado global e utilitários compartilhados. |
+| `src/js/auth/auth.js` | Sessão, login, cadastro, perfis, diretório e recuperação de senha. |
+| `src/js/livros/api.js` | Consultas às APIs externas de livros. |
+| `src/js/comunidade/interacoes.js` | Avaliações, comentários, indicações, votos e carregamento da comunidade. |
+| `src/js/leitura/progresso.js` | Registros diários, edições, métricas e compartilhamento do progresso. |
+| `src/js/leitura/cartao.js` | Geração, download e compartilhamento de cartões de leitura. |
+| `src/js/ui/perfis.js` | Renderização de perfis, diretório, gêneros e controles administrativos relacionados. |
+| `src/js/ui/metricas.js` | Renderização das métricas pessoais, metas e cartões do grupo. |
+| `src/js/ui/biblioteca.js` | Renderização da biblioteca, detalhes dos livros e comentários. |
+| `src/js/app.js` | Inicialização, navegação, histórico, eventos e operações administrativas de livros e guia. |
+| `supabase-migration.sql` | Tabelas, funções, políticas RLS e Storage do Supabase. |
+| `README.md` | Documentação e instruções do projeto. |
 
 ## Pré-requisitos
 
@@ -308,7 +343,7 @@ O formulário exige pelo menos 8 caracteres, uma letra maiúscula, uma minúscul
 
 ### 3. Criar o primeiro usuário administrador
 
-Cadastre no projeto Supabase uma conta com o e-mail definido em `EMAIL_ADMIN_MASTER` no arquivo `config.js`.
+Cadastre no projeto Supabase uma conta com o e-mail definido em `EMAIL_ADMIN_MASTER` no arquivo `src/js/core/config.js`.
 
 Depois use o único botão **Entrar / Cadastrar** da interface e informe as credenciais dessa conta.
 
@@ -322,7 +357,7 @@ O administrador pode criar o guia pela aba correspondente. O código usa `upsert
 
 ## Configuração da aplicação
 
-As principais configurações ficam em `config.js`:
+As principais configurações ficam em `src/js/core/config.js`:
 
 ```javascript
 const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co';
@@ -342,7 +377,7 @@ Use a URL do projeto encontrada em:
 
 Use a chave pública ou publishable key disponibilizada pelo Supabase. Ela é usada no navegador e não substitui as políticas de segurança do banco.
 
-Não coloque uma chave secreta de servidor em `config.js`.
+Não coloque uma chave secreta de servidor em `src/js/core/config.js`.
 
 ### Administrador master
 
@@ -816,7 +851,7 @@ Animações são reduzidas quando o usuário possui preferência `prefers-reduce
 
 ### Estado global
 
-`estadoApp`, definido em `config.js`, contém:
+`estadoApp`, definido em `src/js/core/config.js`, contém:
 
 - `encontros`;
 - `perfis`;
@@ -852,14 +887,14 @@ Os perfis e usuários Supabase usam UUID.
 
 Altere simultaneamente:
 
-1. `EMAIL_ADMIN_MASTER` em `config.js`;
+1. `EMAIL_ADMIN_MASTER` em `src/js/core/config.js`;
 2. a comparação em `clube_e_admin()` no arquivo SQL.
 
 Não mantenha versões diferentes do e-mail no frontend e no banco.
 
 ### Alterar gêneros
 
-Edite o array `GENEROS_DISPONIVEIS` em `config.js`. Os campos de admin, filtro, indicação e resenha são reconstruídos a partir desse array.
+Edite o array `GENEROS_DISPONIVEIS` em `src/js/core/config.js`. Os campos de admin, filtro, indicação e resenha são reconstruídos a partir desse array.
 
 ### Alterar limites de imagens
 
@@ -869,11 +904,11 @@ A função `fazerUploadFotoComprimida()` usa:
 - largura ou altura máxima de 1280 pixels;
 - Web Worker quando disponível.
 
-Esses valores podem ser ajustados em `config.js`.
+Esses valores podem ser ajustados em `src/js/core/config.js`.
 
 ### Alterar a aparência
 
-As principais propriedades visuais ficam nas variáveis CSS no início de `style.css`.
+As principais propriedades visuais ficam nas variáveis CSS no início de `src/css/style.css`.
 
 Exemplos:
 
@@ -886,7 +921,7 @@ Exemplos:
 
 ### Alterar fontes externas
 
-As fontes são declaradas em `index.html` e referenciadas em `style.css`.
+As fontes são declaradas em `index.html` e referenciadas em `src/css/style.css`.
 
 ## Manutenção
 
@@ -997,7 +1032,7 @@ Confira:
 
 ### Administração não aparece
 
-O e-mail deve corresponder exatamente à configuração em `config.js`, sem diferenças de caixa. Confira também o projeto Supabase usado pelo cliente.
+O e-mail deve corresponder exatamente à configuração em `src/js/core/config.js`, sem diferenças de caixa. Confira também o projeto Supabase usado pelo cliente.
 
 ### Guia não carrega
 
