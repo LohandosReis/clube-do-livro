@@ -265,6 +265,30 @@ function registrarEventos() {
       case 'comentar-livro':
         enviarComentarioLivro(Number(id));
         break;
+      case 'curtir-comentario':
+        alternarCurtidaComentario(Number(id));
+        break;
+      case 'responder-comentario':
+        enviarRespostaComentario(Number(id));
+        break;
+      case 'editar-resposta-comentario':
+        editarRespostaComentario(Number(id));
+        break;
+      case 'apagar-resposta-comentario':
+        apagarRespostaComentario(Number(id));
+        break;
+      case 'curtir-progresso-compartilhado':
+        alternarCurtidaProgressoCompartilhado(acao.dataset.publicacaoId);
+        break;
+      case 'comentar-progresso-compartilhado':
+        comentarProgressoCompartilhado(acao.dataset.publicacaoId);
+        break;
+      case 'apagar-comentario-progresso':
+        apagarComentarioProgressoCompartilhado(Number(id));
+        break;
+      case 'editar-comentario-progresso':
+        editarComentarioProgressoCompartilhado(Number(id));
+        break;
       case 'apagar-comentario':
         apagarComentario(Number(id));
         break;

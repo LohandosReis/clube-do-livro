@@ -691,6 +691,55 @@ function renderizarAcompanhamentoLeitura() {
   if (publicarSite) publicarSite.checked = Boolean(estadoApp.progressoPublicado);
 }
 
+function renderizarInteracoesProgresso(cartao) {
+  const publicacaoId = cartao.id_publico;
+  if (!publicacaoId) return '';
+
+  const curtidas = estadoApp.curtidasProgressoCompartilhado
+    .filter(item => item.publicacao_id === publicacaoId);
+  const curtiu = curtidas.some(item => item.usuario_id === estadoApp.usuario?.id);
+  const comentarios = estadoApp.comentariosProgressoCompartilhado
+    .filter(item => item.publicacao_id === publicacaoId);
+  const comentariosHTML = comentarios.map(comentario => {
+    const perfil = estadoApp.perfis[comentario.usuario_id] || {};
+    const nome = perfil.nome || 'Membro do Clube';
+    const podeApagar = estadoApp.usuario &&
+      (estadoApp.ehAdminMaster || comentario.usuario_id === estadoApp.usuario.id);
+    return `
+      <div class="comentario-progresso-item">
+        <div class="comentario-progresso-topo">
+          <strong>${escaparHTML(nome)}</strong>
+          <small>${escaparHTML(formatarDataHoraBR(comentario.criado_em))}</small>
+          ${estadoApp.usuario && estadoApp.ehAdminMaster ? `<button type="button" class="btn-secundario btn-mini" data-action="editar-comentario-progresso" data-id="${comentario.id}">Editar</button>` : ''}
+          ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-comentario-progresso" data-id="${comentario.id}">×</button>` : ''}
+        </div>
+        <p>${escaparHTML(comentario.texto)}</p>
+      </div>
+    `;
+  }).join('');
+  const podeInteragir = Boolean(estadoApp.usuario && !cartao.eh_meu);
+  const acoes = podeInteragir
+    ? `
+      <button type="button" class="btn-secundario btn-mini ${curtiu ? 'curtida-ativa' : ''}" data-action="curtir-progresso-compartilhado" data-publicacao-id="${escaparHTML(publicacaoId)}" aria-pressed="${curtiu}">
+        ${curtiu ? 'Curtido' : 'Curtir'} (${curtidas.length})
+      </button>
+      <div class="comentario-progresso-form">
+        <textarea id="comentario-progresso-${escaparHTML(publicacaoId)}" rows="2" maxlength="1000" placeholder="Comente sobre este progresso..."></textarea>
+        <button type="button" class="btn-secundario btn-mini" data-action="comentar-progresso-compartilhado" data-publicacao-id="${escaparHTML(publicacaoId)}">Comentar</button>
+      </div>
+    `
+    : `<small>${curtidas.length} curtida${curtidas.length === 1 ? '' : 's'}${!estadoApp.usuario ? ' · Entre como membro para interagir' : ''}</small>`;
+
+  return `
+    <div class="interacoes-progresso">
+      <div class="interacoes-progresso-acoes">${acoes}</div>
+      <div class="comentarios-progresso-lista">
+        ${comentariosHTML || '<small>Ainda não há comentários neste progresso.</small>'}
+      </div>
+    </div>
+  `;
+}
+
 function renderizarMetricasGrupo() {
   const painel = document.getElementById('painel-metricas-grupo');
   const cartoesContainer = document.getElementById('cartoes-publicos-grupo');
@@ -770,6 +819,7 @@ function renderizarMetricasGrupo() {
               <span>${paginas} ${paginas === 1 ? 'página registrada' : 'páginas registradas'}${total ? ` de ${total} (${percentual}%)` : ''}</span>
               ${percentual !== null ? `<div class="progresso-container"><div class="progresso-barra" style="width:${percentual}%"></div></div>` : ''}
             </div>
+            ${renderizarInteracoesProgresso(cartao)}
           </article>
         `;
       }).join('')}
@@ -807,6 +857,36 @@ function renderizarBlocoComentarios(encontroId) {
         const ehAdmin = Boolean(estadoApp.usuario && estadoApp.ehAdminMaster);
         const podeApagar = estadoApp.usuario &&
           (ehAdmin || c.usuario_id === estadoApp.usuario.id);
+        const curtidas = estadoApp.curtidasComentarios.filter(item => item.comentario_id === c.id);
+        const curtiu = curtidas.some(item => item.usuario_id === estadoApp.usuario?.id);
+        const podeCurtir = estadoApp.usuario &&
+          (c.usuario_id !== estadoApp.usuario.id || curtiu);
+        const respostas = estadoApp.respostasComentarios.filter(item => item.comentario_id === c.id);
+        const respostasHTML = respostas.map(resposta => {
+          const perfilResposta = estadoApp.perfis[resposta.usuario_id] || {};
+          const nomeResposta = perfilResposta.nome || 'Membro do Clube';
+          const podeApagarResposta = estadoApp.usuario &&
+            (ehAdmin || resposta.usuario_id === estadoApp.usuario.id);
+          return `
+            <div class="resposta-comentario">
+              <div class="resposta-comentario-topo">
+                <strong>${escaparHTML(nomeResposta)}</strong>
+                <small>${escaparHTML(formatarDataHoraBR(resposta.criado_em))}</small>
+                ${ehAdmin ? `<button type="button" class="btn-secundario btn-mini" data-action="editar-resposta-comentario" data-id="${resposta.id}">Editar</button>` : ''}
+                ${podeApagarResposta ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-resposta-comentario" data-id="${resposta.id}">×</button>` : ''}
+              </div>
+              <p>${escaparHTML(resposta.texto)}</p>
+            </div>
+          `;
+        }).join('');
+        const formularioResposta = estadoApp.usuario
+          ? `
+            <div class="resposta-comentario-form">
+              <textarea id="resposta-comentario-input-${c.id}" rows="2" maxlength="1000" placeholder="Escreva uma resposta..."></textarea>
+              <button type="button" class="btn-secundario btn-mini" data-action="responder-comentario" data-id="${c.id}">Responder</button>
+            </div>
+          `
+          : '';
         return `
           <div class="comentario-item">
             <img class="comentario-avatar" src="${escaparHTML(foto)}" alt="${escaparHTML(nome)}" loading="lazy">
@@ -818,6 +898,13 @@ function renderizarBlocoComentarios(encontroId) {
                 ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-comentario" data-id="${c.id}">×</button>` : ''}
               </div>
               <p class="comentario-texto">${escaparHTML(c.texto)}</p>
+              <div class="interacao-comentario">
+                ${podeCurtir
+                  ? `<button type="button" class="btn-secundario btn-mini ${curtiu ? 'curtida-ativa' : ''}" data-action="curtir-comentario" data-id="${c.id}" aria-pressed="${curtiu}">${curtiu ? 'Curtido' : 'Curtir'} (${curtidas.length})</button>`
+                  : `<small>👍 ${curtidas.length} curtida${curtidas.length === 1 ? '' : 's'}</small>`}
+              </div>
+              ${respostasHTML ? `<div class="respostas-comentario"><strong>Respostas (${respostas.length})</strong>${respostasHTML}</div>` : ''}
+              ${formularioResposta}
             </div>
           </div>
         `;

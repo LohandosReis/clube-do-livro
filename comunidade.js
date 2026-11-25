@@ -86,6 +86,107 @@ window.enviarComentarioLivro = async (encontroId) => {
   renderizarTela();
 };
 
+window.alternarCurtidaComentario = async (comentarioId) => {
+  if (!estadoApp.usuario) {
+    alert('Entre na sua conta para curtir comentários.');
+    document.getElementById('secao-conta-usuario').classList.remove('oculto');
+    return;
+  }
+
+  const comentario = estadoApp.comentarios.find(item => item.id === comentarioId);
+  if (!comentario) return alert('Este comentário não foi encontrado.');
+
+  const curtida = estadoApp.curtidasComentarios.find(
+    item => item.comentario_id === comentarioId && item.usuario_id === estadoApp.usuario.id
+  );
+  if (!curtida && comentario.usuario_id === estadoApp.usuario.id) {
+    return alert('Você não pode curtir seu próprio comentário.');
+  }
+
+  const consulta = supabaseClient.from('curtidas_comentarios_livro');
+  const resultado = curtida
+    ? await consulta.delete()
+        .eq('comentario_id', comentarioId)
+        .eq('usuario_id', estadoApp.usuario.id)
+    : await consulta.insert({
+        comentario_id: comentarioId,
+        usuario_id: estadoApp.usuario.id
+      });
+  if (resultado.error) return alert('Não foi possível atualizar a curtida: ' + resultado.error.message);
+
+  await carregarComunidade();
+  renderizarTela();
+};
+
+window.enviarRespostaComentario = async (comentarioId) => {
+  if (!estadoApp.usuario) {
+    alert('Entre na sua conta para responder comentários.');
+    document.getElementById('secao-conta-usuario').classList.remove('oculto');
+    return;
+  }
+
+  const comentario = estadoApp.comentarios.find(item => item.id === comentarioId);
+  if (!comentario) return alert('Este comentário não foi encontrado.');
+
+  const textarea = document.getElementById(`resposta-comentario-input-${comentarioId}`);
+  const texto = (textarea?.value || '').trim();
+  if (!texto) return alert('Escreva uma resposta antes de enviar.');
+  if (texto.length > 1000) return alert('A resposta deve ter no máximo 1000 caracteres.');
+
+  const { error } = await supabaseClient.from('respostas_comentarios_livro').insert({
+    comentario_id: comentarioId,
+    usuario_id: estadoApp.usuario.id,
+    texto
+  });
+  if (error) return alert('Não foi possível enviar a resposta: ' + error.message);
+
+  await carregarComunidade();
+  renderizarTela();
+};
+
+window.apagarRespostaComentario = async (respostaId) => {
+  const resposta = estadoApp.respostasComentarios.find(item => item.id === respostaId);
+  if (!estadoApp.usuario || !resposta ||
+      (!estadoApp.ehAdminMaster && resposta.usuario_id !== estadoApp.usuario.id)) {
+    return alert('Você não tem permissão para apagar esta resposta.');
+  }
+  if (!confirm('Deseja apagar esta resposta?')) return;
+
+  const { error } = await supabaseClient
+    .from('respostas_comentarios_livro')
+    .delete()
+    .eq('id', respostaId);
+  if (error) return alert('Não foi possível apagar a resposta: ' + error.message);
+
+  await carregarComunidade();
+  renderizarTela();
+};
+
+window.editarRespostaComentario = async (respostaId) => {
+  if (!estadoApp.usuario || !estadoApp.ehAdminMaster) {
+    return alert('Apenas o Admin Master pode editar respostas.');
+  }
+  const resposta = estadoApp.respostasComentarios.find(item => item.id === respostaId);
+  if (!resposta) return alert('Esta resposta não foi encontrada.');
+
+  const texto = prompt('Edite a resposta:', resposta.texto);
+  if (texto === null) return;
+  const textoFinal = texto.trim();
+  if (!textoFinal) return alert('A resposta não pode ficar vazia.');
+  if (textoFinal.length > 1000) return alert('A resposta deve ter no máximo 1000 caracteres.');
+  if (textoFinal === resposta.texto) return;
+  if (!confirm('Salvar as alterações desta resposta?')) return;
+
+  const { error } = await supabaseClient
+    .from('respostas_comentarios_livro')
+    .update({ texto: textoFinal })
+    .eq('id', respostaId);
+  if (error) return alert('Não foi possível editar a resposta: ' + error.message);
+
+  await carregarComunidade();
+  renderizarTela();
+};
+
 window.apagarComentario = async (comentarioId) => {
   const comentario = estadoApp.comentarios.find(item => item.id === comentarioId);
   if (!estadoApp.usuario || !comentario ||
@@ -391,21 +492,27 @@ function renderizarIndicacoes() {
 }
 
 async function carregarComunidade() {
-  const [resAv, resCom, resInd, resVot] = await Promise.allSettled([
+  const [resAv, resCom, resCurtidas, resRespostas, resInd, resVot] = await Promise.allSettled([
     supabaseClient.from('avaliacoes_livro').select('*'),
     supabaseClient.from('comentarios_livro').select('*').order('criado_em', { ascending: true }),
+    supabaseClient.from('curtidas_comentarios_livro').select('*'),
+    supabaseClient.from('respostas_comentarios_livro').select('*').order('criado_em', { ascending: true }),
     supabaseClient.from('indicacoes_livro').select('*').order('criado_em', { ascending: false }),
     supabaseClient.from('votos_indicacao').select('*')
   ]);
 
   if (resAv.status === 'fulfilled' && !resAv.value.error) estadoApp.avaliacoes = resAv.value.data || [];
   if (resCom.status === 'fulfilled' && !resCom.value.error) estadoApp.comentarios = resCom.value.data || [];
+  if (resCurtidas.status === 'fulfilled' && !resCurtidas.value.error) estadoApp.curtidasComentarios = resCurtidas.value.data || [];
+  if (resRespostas.status === 'fulfilled' && !resRespostas.value.error) estadoApp.respostasComentarios = resRespostas.value.data || [];
   if (resInd.status === 'fulfilled' && !resInd.value.error) estadoApp.indicacoes = resInd.value.data || [];
   if (resVot.status === 'fulfilled' && !resVot.value.error) estadoApp.votos = resVot.value.data || [];
 
   const falhas = [
     ['avaliações', resAv],
     ['comentários', resCom],
+    ['curtidas em comentários', resCurtidas],
+    ['respostas a comentários', resRespostas],
     ['indicações', resInd],
     ['votos', resVot]
   ].filter(([, resultado]) =>
@@ -486,6 +593,8 @@ async function carregarMetricasGrupo() {
 
   estadoApp.metricasGrupo = null;
   estadoApp.cartoesProgressoPublicos = [];
+  estadoApp.curtidasProgressoCompartilhado = [];
+  estadoApp.comentariosProgressoCompartilhado = [];
 
   if (!atual) {
     if (titulo) titulo.textContent = 'Não há uma leitura atual definida pelo clube.';
@@ -522,8 +631,130 @@ async function carregarMetricasGrupo() {
     }
   }
 
+  const idsPublicacoes = estadoApp.cartoesProgressoPublicos
+    .map(cartao => cartao.id_publico)
+    .filter(Boolean);
+  if (idsPublicacoes.length) {
+    const [resCurtidas, resComentarios] = await Promise.allSettled([
+      supabaseClient
+        .from('curtidas_progresso_compartilhado')
+        .select('publicacao_id,usuario_id')
+        .in('publicacao_id', idsPublicacoes),
+      supabaseClient
+        .from('comentarios_progresso_compartilhado')
+        .select('*')
+        .in('publicacao_id', idsPublicacoes)
+        .order('criado_em', { ascending: true })
+    ]);
+
+    if (resCurtidas.status === 'fulfilled' && !resCurtidas.value.error) {
+      estadoApp.curtidasProgressoCompartilhado = resCurtidas.value.data || [];
+    } else {
+      console.warn('Erro ao carregar curtidas do progresso compartilhado:', resCurtidas.status === 'rejected' ? resCurtidas.reason : resCurtidas.value.error.message);
+    }
+
+    if (resComentarios.status === 'fulfilled' && !resComentarios.value.error) {
+      estadoApp.comentariosProgressoCompartilhado = resComentarios.value.data || [];
+    } else {
+      console.warn('Erro ao carregar comentários do progresso compartilhado:', resComentarios.status === 'rejected' ? resComentarios.reason : resComentarios.value.error.message);
+    }
+  }
+
   renderizarMetricasGrupo();
 }
+
+window.alternarCurtidaProgressoCompartilhado = async (publicacaoId) => {
+  if (!estadoApp.usuario) {
+    alert('Entre na sua conta para curtir o progresso de leitura.');
+    document.getElementById('secao-conta-usuario').classList.remove('oculto');
+    return;
+  }
+
+  const cartao = estadoApp.cartoesProgressoPublicos.find(item => item.id_publico === publicacaoId);
+  if (!cartao || cartao.eh_meu) return alert('Você só pode curtir o progresso compartilhado por outra pessoa.');
+
+  const curtida = estadoApp.curtidasProgressoCompartilhado.find(
+    item => item.publicacao_id === publicacaoId && item.usuario_id === estadoApp.usuario.id
+  );
+  const consulta = supabaseClient.from('curtidas_progresso_compartilhado');
+  const resultado = curtida
+    ? await consulta.delete()
+        .eq('publicacao_id', publicacaoId)
+        .eq('usuario_id', estadoApp.usuario.id)
+    : await consulta.insert({
+        publicacao_id: publicacaoId,
+        usuario_id: estadoApp.usuario.id
+      });
+  if (resultado.error) return alert('Não foi possível atualizar a curtida: ' + resultado.error.message);
+
+  await carregarMetricasGrupo();
+};
+
+window.comentarProgressoCompartilhado = async (publicacaoId) => {
+  if (!estadoApp.usuario) {
+    alert('Entre na sua conta para comentar no progresso de leitura.');
+    document.getElementById('secao-conta-usuario').classList.remove('oculto');
+    return;
+  }
+
+  const cartao = estadoApp.cartoesProgressoPublicos.find(item => item.id_publico === publicacaoId);
+  if (!cartao || cartao.eh_meu) return alert('Você só pode comentar no progresso compartilhado por outra pessoa.');
+
+  const textarea = document.getElementById(`comentario-progresso-${publicacaoId}`);
+  const texto = (textarea?.value || '').trim();
+  if (!texto) return alert('Escreva um comentário antes de enviar.');
+  if (texto.length > 1000) return alert('O comentário deve ter no máximo 1000 caracteres.');
+
+  const { error } = await supabaseClient.from('comentarios_progresso_compartilhado').insert({
+    publicacao_id: publicacaoId,
+    usuario_id: estadoApp.usuario.id,
+    texto
+  });
+  if (error) return alert('Não foi possível enviar o comentário: ' + error.message);
+
+  await carregarMetricasGrupo();
+};
+
+window.apagarComentarioProgressoCompartilhado = async (comentarioId) => {
+  const comentario = estadoApp.comentariosProgressoCompartilhado.find(item => item.id === comentarioId);
+  if (!estadoApp.usuario || !comentario ||
+      (!estadoApp.ehAdminMaster && comentario.usuario_id !== estadoApp.usuario.id)) {
+    return alert('Você não tem permissão para apagar este comentário.');
+  }
+  if (!confirm('Deseja apagar este comentário sobre o progresso compartilhado?')) return;
+
+  const { error } = await supabaseClient
+    .from('comentarios_progresso_compartilhado')
+    .delete()
+    .eq('id', comentarioId);
+  if (error) return alert('Não foi possível apagar o comentário: ' + error.message);
+
+  await carregarMetricasGrupo();
+};
+
+window.editarComentarioProgressoCompartilhado = async (comentarioId) => {
+  if (!estadoApp.usuario || !estadoApp.ehAdminMaster) {
+    return alert('Apenas o Admin Master pode editar comentários de progresso.');
+  }
+  const comentario = estadoApp.comentariosProgressoCompartilhado.find(item => item.id === comentarioId);
+  if (!comentario) return alert('Este comentário não foi encontrado.');
+
+  const texto = prompt('Edite o comentário sobre o progresso:', comentario.texto);
+  if (texto === null) return;
+  const textoFinal = texto.trim();
+  if (!textoFinal) return alert('O comentário não pode ficar vazio.');
+  if (textoFinal.length > 1000) return alert('O comentário deve ter no máximo 1000 caracteres.');
+  if (textoFinal === comentario.texto) return;
+  if (!confirm('Salvar as alterações deste comentário?')) return;
+
+  const { error } = await supabaseClient
+    .from('comentarios_progresso_compartilhado')
+    .update({ texto: textoFinal })
+    .eq('id', comentarioId);
+  if (error) return alert('Não foi possível editar o comentário: ' + error.message);
+
+  await carregarMetricasGrupo();
+};
 
 window.salvarProgressoLeitura = async (dataLeitura, paginas) => {
   if (!estadoApp.usuario) {

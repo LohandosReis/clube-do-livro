@@ -101,6 +101,7 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Avaliação de cada livro em uma escala de 0 a 5.
 - Uma avaliação por usuário em cada livro, atualizada por upsert.
 - Comentários em cada livro.
+- Curtidas e respostas em comentários publicados pelos membros.
 - Indicação de novos livros com título, autor, gênero e justificativa.
 - Voto único por membro em cada indicação.
 - Ordenação das indicações pela quantidade de votos.
@@ -140,6 +141,7 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Conta membros ativos nos últimos sete dias.
 - Exibe atividade diária somente quando há ao menos três leitores naquele dia; os nomes de animais são aleatórios e não identificam membros.
 - Exibe cartões públicos somente de membros que ativaram explicitamente a publicação.
+- Os cartões de progresso compartilhados podem receber curtidas e comentários de outros membros conectados.
 - Alterar a quantidade registrada em uma data substitui o valor daquela data.
 
 ## Arquitetura
@@ -420,6 +422,26 @@ Chave primária composta: `(encontro_id, usuario_id)`.
 | `texto` | `text` | Conteúdo do comentário. |
 | `criado_em` | `timestamptz` | Data de criação. |
 
+### Interações nos comentários de livros
+
+`curtidas_comentarios_livro` registra uma curtida por membro e comentário; a chave primária (`comentario_id`, `usuario_id`) impede curtidas repetidas. O autor não pode curtir o próprio comentário.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `comentario_id` | `bigint` | Comentário curtido. |
+| `usuario_id` | `uuid` | Membro que curtiu. |
+| `criado_em` | `timestamptz` | Data da curtida. |
+
+`respostas_comentarios_livro` guarda respostas vinculadas a um comentário:
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | `bigint identity` | Identificador da resposta. |
+| `comentario_id` | `bigint` | Comentário ao qual a resposta pertence. |
+| `usuario_id` | `uuid` | Membro que escreveu a resposta. |
+| `texto` | `text` | Resposta não vazia, com até 1000 caracteres. |
+| `criado_em` | `timestamptz` | Data da resposta. |
+
 ### `indicacoes_livro`
 
 | Coluna | Tipo | Descrição |
@@ -462,6 +484,7 @@ Armazena apenas a decisão explícita de publicar um cartão e se o nome pode ap
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
+| `id_publico` | `uuid` | Identificador aleatório usado pelas interações públicas, sem expor o UUID da conta. |
 | `usuario_id` | `uuid` | Dono da preferência de publicação. |
 | `encontro_id` | `bigint` | Livro associado ao cartão. |
 | `mostrar_nome` | `boolean` | Indica se o nome do perfil foi autorizado para exibição. |
@@ -469,6 +492,17 @@ Armazena apenas a decisão explícita de publicar um cartão e se o nome pode ap
 | `publicado_em` | `timestamptz` | Momento em que a publicação foi ativada. |
 
 Chave primária composta: `(usuario_id, encontro_id)`. A tabela não permite leitura pública direta; a função `clube_cartoes_progresso_publicos()` retorna apenas dados dos cartões publicados, sem IDs de conta. A pessoa pode revogar a publicação pela própria interface.
+
+### Interações em cartões de progresso compartilhado
+
+- `curtidas_progresso_compartilhado` guarda uma curtida por membro e cartão publicado. A chave primária (`publicacao_id`, `usuario_id`) impede curtidas repetidas.
+- `comentarios_progresso_compartilhado` guarda comentários de até 1000 caracteres, vinculados ao identificador aleatório `id_publico`.
+- Essas interações só ficam visíveis enquanto o cartão estiver compartilhado e corresponder à leitura atual com progresso registrado.
+- Ao retirar a publicação do cartão, as curtidas e os comentários associados são removidos em cascata.
+
+Colunas de `curtidas_progresso_compartilhado`: `publicacao_id` (`uuid` do cartão), `usuario_id` (`uuid` do membro) e `criado_em` (`timestamptz`).
+
+Colunas de `comentarios_progresso_compartilhado`: `id` (`bigint identity`), `publicacao_id` (`uuid` do cartão), `usuario_id` (`uuid` do autor), `texto` (`text`) e `criado_em` (`timestamptz`).
 
 ### `metas_leitura`
 
@@ -528,6 +562,17 @@ Leituras do clube, comentários, indicações e avaliações publicadas podem se
 - autenticação é necessária para criar;
 - o autor pode excluir seu próprio conteúdo;
 - o Admin Master pode editar ou excluir qualquer comentário e indicação.
+- visitantes podem ler curtidas e respostas; somente membros conectados podem curtir ou responder;
+- não é permitido curtir o próprio comentário;
+- o autor pode apagar suas respostas e o Admin Master pode moderar respostas.
+
+### Interações em progresso compartilhado
+
+- somente membros conectados podem curtir e comentar nos cartões compartilhados por outras pessoas;
+- o autor do cartão não pode curtir nem comentar no próprio cartão;
+- visitantes podem visualizar as interações;
+- o autor pode excluir seus comentários; o Admin Master pode editar ou excluir comentários;
+- a RLS verifica que o cartão continua publicado e que o progresso permanece visível antes de permitir interações.
 
 ### Fotos
 
@@ -612,6 +657,18 @@ O administrador pode habilitar ou revogar essa permissão na aba **Usuários e P
 - Indicações exigem login.
 - A votação exige login e pode ser alternada.
 - Exclusões exigem ser o autor ou o administrador.
+
+### Curtir e responder a comentários
+
+1. Abrir os comentários de um livro.
+2. Entrar na conta para curtir um comentário de outra pessoa ou responder a um comentário.
+3. O autor pode apagar sua própria resposta; o Admin Master pode moderar respostas.
+
+### Interagir com progresso compartilhado
+
+1. Um membro ativa a publicação do cartão de progresso pessoal.
+2. Outros membros conectados podem curtir ou comentar no cartão, na área **Ritmo do Clube**.
+3. Visitantes podem ler as curtidas e comentários, mas precisam entrar para interagir.
 
 ### Editar perfil e encontrar membros
 
