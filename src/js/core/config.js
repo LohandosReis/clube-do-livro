@@ -199,7 +199,7 @@ async function assinarFotosDePerfis(perfis, { exigirAssinatura = false } = {}) {
     .createSignedUrls(caminhos, 3600);
   if (error) throw error;
 
-  const resultados = new Map((data?.signedUrls || []).map(item => [item.path, item]));
+  const resultados = new Map((data || []).map(item => [item.path, item]));
   return registros.map(perfil => {
     if (/^https?:\/\//i.test(perfil.foto_path)) {
       return { ...perfil, foto_url: perfil.foto_path };
@@ -207,7 +207,9 @@ async function assinarFotosDePerfis(perfis, { exigirAssinatura = false } = {}) {
 
     const resultado = resultados.get(perfil.foto_path);
     if (exigirAssinatura && perfil.foto_path && (!resultado || resultado.error || !resultado.signedUrl)) {
-      const detalhe = resultado?.error?.message || 'O armazenamento não retornou um endereço para a foto.';
+      const detalhe = typeof resultado?.error === 'string'
+        ? resultado.error
+        : (resultado?.error?.message || 'O armazenamento não retornou um endereço para a foto.');
       throw new Error(`Não foi possível gerar um endereço seguro para a foto: ${detalhe}`);
     }
 
