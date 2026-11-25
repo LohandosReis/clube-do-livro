@@ -13,6 +13,7 @@ O projeto não usa framework ou processo de compilação. Os arquivos são carre
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Pré-requisitos](#pré-requisitos)
 - [Instalação e execução](#instalação-e-execução)
+- [Aplicativo para celular (PWA)](#aplicativo-para-celular-pwa)
 - [Configuração do Supabase](#configuração-do-supabase)
 - [Configuração da aplicação](#configuração-da-aplicação)
 - [Modelo de dados](#modelo-de-dados)
@@ -229,6 +230,13 @@ Não há dependências de npm declaradas e não é necessário executar `npm ins
 ```text
 clube-do-livro/
 ├── index.html
+├── manifest.webmanifest
+├── service-worker.js
+├── favicon.svg
+├── icons/
+│   ├── apple-touch-icon.png
+│   ├── icon-192.png
+│   └── icon-512.png
 ├── README.md
 ├── supabase-migration.sql
 └── src/
@@ -256,6 +264,10 @@ clube-do-livro/
 | Arquivo | Responsabilidade |
 |---|---|
 | `index.html` | Estrutura, formulários, seções e ordem de carregamento. |
+| `manifest.webmanifest` | Nome, cores, ícone e modo de exibição do aplicativo instalável. |
+| `service-worker.js` | Cache dos arquivos estáticos do aplicativo, sem armazenar dados do Supabase. |
+| `favicon.svg` | Ícone de cérebro alado usado pelo site e pelo aplicativo. |
+| `icons/` | Ícones PNG do aplicativo para Android e iOS. |
 | `src/css/style.css` | Tema visual, componentes, layout responsivo e animações. |
 | `src/js/core/config.js` | Cliente Supabase, configurações, estado global e utilitários compartilhados. |
 | `src/js/auth/auth.js` | Sessão, login, cadastro, perfis, diretório e recuperação de senha. |
@@ -301,6 +313,15 @@ npx serve .
 ```
 
 Um servidor local é recomendado, pois evita algumas diferenças de acesso e facilita o uso de recursos do navegador. Para testar os links de autenticação, use o endereço HTTP local, por exemplo `http://localhost:5500`.
+
+### Aplicativo para celular (PWA)
+
+O site pode ser instalado como um aplicativo pelo navegador, sem passar por uma loja. A instalação e o service worker exigem HTTPS; `localhost` também funciona durante o desenvolvimento. Em navegadores compatíveis, o botão **Instalar app** aparece no cabeçalho quando a instalação estiver disponível.
+
+- **Android:** abra o endereço HTTPS no Chrome e escolha **Instalar app** ou **Adicionar à tela inicial** no menu do navegador.
+- **iPhone/iPad:** abra o endereço no Safari, toque em **Compartilhar** e escolha **Adicionar à Tela de Início**.
+
+O service worker mantém em cache apenas os arquivos estáticos da interface. Não armazena respostas do Supabase nem dados pessoais; login, conteúdo e integrações continuam exigindo conexão com a internet. Ao alterar a lista de arquivos do cache, incremente a versão `CACHE_NAME` em `service-worker.js`.
 
 ### Publicar
 

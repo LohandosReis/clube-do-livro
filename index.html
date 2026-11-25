@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clube do Livro | Leituras e comunidade</title>
+  <meta name="theme-color" content="#14283f">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,6 +33,7 @@
       <small>Um espaço organizado para ler, acompanhar e compartilhar</small>
     </div>
     <div class="header-acoes">
+      <button type="button" id="btn-instalar-app" class="btn-secundario oculto">Instalar app</button>
       <button
         type="button"
         id="badge-usuario-logado"
@@ -619,5 +623,44 @@
   <script src="src/js/ui/metricas.js"></script>
   <script src="src/js/ui/biblioteca.js"></script>
   <script src="src/js/app.js"></script>
+  <script>
+    (() => {
+      if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./service-worker.js').catch(error => {
+            console.error('Não foi possível registrar o service worker do Clube do Livro.', error);
+          });
+        });
+      }
+
+      const installButton = document.getElementById('btn-instalar-app');
+      let installPrompt = null;
+
+      window.addEventListener('beforeinstallprompt', event => {
+        event.preventDefault();
+        installPrompt = event;
+        installButton.classList.remove('oculto');
+      });
+
+      installButton.addEventListener('click', async () => {
+        if (!installPrompt) return;
+
+        const promptEvent = installPrompt;
+        installPrompt = null;
+        installButton.classList.add('oculto');
+
+        try {
+          await promptEvent.prompt();
+        } catch (error) {
+          console.error('Não foi possível iniciar a instalação do Clube do Livro.', error);
+        }
+      });
+
+      window.addEventListener('appinstalled', () => {
+        installPrompt = null;
+        installButton.classList.add('oculto');
+      });
+    })();
+  </script>
 </body>
 </html>
