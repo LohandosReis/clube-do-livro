@@ -53,6 +53,22 @@ create table if not exists public.perfis_clube_detalhes (
   atualizado_em timestamptz not null default now()
 );
 
+create table if not exists public.clube_visitas_site (
+  sessao_id uuid primary key,
+  usuario_id uuid references auth.users(id) on delete set null,
+  entrou_em timestamptz not null default now()
+);
+
+create index if not exists clube_visitas_site_usuario_data_idx
+  on public.clube_visitas_site (usuario_id, entrou_em desc)
+  where usuario_id is not null;
+
+create index if not exists clube_visitas_site_data_idx
+  on public.clube_visitas_site (entrou_em desc);
+
+alter table public.clube_visitas_site enable row level security;
+revoke all on table public.clube_visitas_site from public, anon, authenticated;
+
 create or replace function public.clube_criar_detalhes_perfil()
 returns trigger
 language plpgsql
@@ -1395,3 +1411,139 @@ create policy "fotos_excluir_proprio_admin"
       or public.clube_e_admin()
     )
   );
+
+create or replace function public.clube_registrar_visita(p_sessao_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_usuario_id uuid := auth.uid();
+begin
+  if p_sessao_id is null then
+    raise exception 'O identificador da sessão é obrigatório.';
+  end if;
+
+  delete from public.clube_visitas_site
+  where entrou_em < now() - interval '12 months';
+
+  insert into public.clube_visitas_site (sessao_id, usuario_id)
+  values (p_sessao_id, v_usuario_id)
+  on conflict (sessao_id) do update
+  set usuario_id = coalesce(
+    public.clube_visitas_site.usuario_id,
+    excluded.usuario_id
+  )
+  where public.clube_visitas_site.usuario_id is null
+    or public.clube_visitas_site.usuario_id = v_usuario_id;
+end;
+$$;
+
+revoke all on function public.clube_registrar_visita(uuid)
+  from public, anon, authenticated;
+grant execute on function public.clube_registrar_visita(uuid)
+  to anon, authenticated;
+
+create or replace function public.clube_listar_visitas_admin()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  resultado jsonb;
+begin
+  if not public.clube_e_admin() then
+    raise exception 'Apenas o Admin Master pode consultar os acessos.'
+      using errcode = '42501';
+  end if;
+
+  delete from public.clube_visitas_site
+  where entrou_em < now() - interval '12 months';
+
+  select jsonb_build_object(
+    'resumo', (
+      select jsonb_build_object(
+        'total_visitas', count(*),
+        'visitas_membros', count(*) filter (where usuario_id is not null),
+        'visitas_anonimas', count(*) filter (where usuario_id is null),
+        'membros_unicos', count(distinct usuario_id)
+      )
+      from public.clube_visitas_site
+    ),
+    'membros', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'usuario_id', dados.usuario_id,
+          'nome', dados.nome,
+          'visitas', dados.visitas,
+          'ultima_visita', dados.ultima_visita
+        )
+        order by dados.ultima_visita desc
+      )
+      from (
+        select
+          visita.usuario_id,
+          coalesce(nullif(btrim(perfil.nome), ''), 'Membro') as nome,
+          count(*) as visitas,
+          max(visita.entrou_em) as ultima_visita
+        from public.clube_visitas_site visita
+        left join public.perfis_clube perfil on perfil.id = visita.usuario_id
+        where visita.usuario_id is not null
+        group by visita.usuario_id, perfil.nome
+        order by max(visita.entrou_em) desc
+        limit 100
+      ) dados
+    ), '[]'::jsonb),
+    'ultimas_visitas_membros', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'usuario_id', dados.usuario_id,
+          'nome', dados.nome,
+          'entrou_em', dados.entrou_em
+        )
+        order by dados.entrou_em desc
+      )
+      from (
+        select
+          visita.usuario_id,
+          coalesce(nullif(btrim(perfil.nome), ''), 'Membro') as nome,
+          visita.entrou_em
+        from public.clube_visitas_site visita
+        left join public.perfis_clube perfil on perfil.id = visita.usuario_id
+        where visita.usuario_id is not null
+        order by visita.entrou_em desc
+        limit 100
+      ) dados
+    ), '[]'::jsonb),
+    'por_dia', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'dia', to_char(dados.dia, 'YYYY-MM-DD'),
+          'visitas_membros', dados.visitas_membros,
+          'visitas_anonimas', dados.visitas_anonimas
+        )
+        order by dados.dia desc
+      )
+      from (
+        select
+          (entrou_em at time zone 'America/Sao_Paulo')::date as dia,
+          count(*) filter (where usuario_id is not null) as visitas_membros,
+          count(*) filter (where usuario_id is null) as visitas_anonimas
+        from public.clube_visitas_site
+        where entrou_em >= now() - interval '30 days'
+        group by (entrou_em at time zone 'America/Sao_Paulo')::date
+      ) dados
+    ), '[]'::jsonb)
+  )
+  into resultado;
+
+  return resultado;
+end;
+$$;
+
+revoke all on function public.clube_listar_visitas_admin()
+  from public, anon, authenticated;
+grant execute on function public.clube_listar_visitas_admin()
+  to authenticated;

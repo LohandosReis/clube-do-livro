@@ -685,6 +685,69 @@ input:focus, select:focus, textarea:focus {
   gap: 0.45rem;
 }
 
+.visitas-admin-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.visitas-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.visita-resumo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  background: var(--cor-superficie-suave);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.visita-resumo-card strong {
+  color: var(--cor-primaria);
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.5rem;
+}
+
+.visitas-admin-secao {
+  margin-top: 1.4rem;
+}
+
+.tabela-visitas-scroll {
+  overflow-x: auto;
+}
+
+.tabela-visitas {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tabela-visitas th,
+.tabela-visitas td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela-visitas th {
+  color: var(--cor-primaria);
+}
+
+.aviso-visitas-site {
+  max-width: 1200px;
+  margin: 1rem auto 0;
+  padding: 0 1rem 1.25rem;
+  color: var(--texto-suave);
+  text-align: center;
+}
+
 /* Espaço da Comunidade (Indicações e Resenhas Individuais) */
 .comunidade-cabecalho {
   display: flex;

@@ -633,6 +633,12 @@ async function verificarSessao() {
   }
   estadoApp.usuario = session?.user || null;
 
+  if (estadoApp.usuario) {
+    registrarVisitaSite(estadoApp.usuario.id).catch(error => {
+      console.error('Não foi possível associar a sessão ao membro conectado:', error);
+    });
+  }
+
   await carregarPerfis();
   if (estadoApp.usuario && !estadoApp.perfilUsuario) {
     try {
@@ -661,6 +667,9 @@ async function entrarComoMembro(email, password) {
 
     estadoApp.recuperacaoSenhaAtiva = false;
     estadoApp.usuario = data.user;
+    registrarVisitaSite(data.user.id).catch(error => {
+      console.error('Não foi possível associar a sessão ao membro conectado:', error);
+    });
     await carregarPerfis();
     await garantirPerfilUsuario(data.user);
     await carregarProgressoLeitura();
@@ -717,6 +726,9 @@ async function cadastrarMembro({ nome, email, password, confirmarSenha, fotoArqu
     if (data.user && data.session) {
       estadoApp.recuperacaoSenhaAtiva = false;
       estadoApp.usuario = data.user;
+      registrarVisitaSite(data.user.id).catch(error => {
+        console.error('Não foi possível associar a sessão ao novo membro:', error);
+      });
       await garantirPerfilUsuario(data.user, nome, fotoUrl);
       await carregarComunidade();
       await carregarProgressoLeitura();

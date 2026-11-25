@@ -185,17 +185,23 @@ function ativarAbaAdmin(abaAtiva) {
   const abaLivro = document.getElementById('aba-livro');
   const abaUsuarios = document.getElementById('aba-usuarios');
   const abaGuia = document.getElementById('aba-guia');
+  const abaVisitas = document.getElementById('aba-visitas');
 
   abaLivro.classList.toggle('oculto', abaAtiva !== 'livro');
   abaUsuarios.classList.toggle('oculto', abaAtiva !== 'usuarios');
   abaGuia.classList.toggle('oculto', abaAtiva !== 'guia');
+  abaVisitas.classList.toggle('oculto', abaAtiva !== 'visitas');
 
   document.getElementById('tab-btn-livro').className = abaAtiva === 'livro' ? 'btn-primario' : 'btn-secundario';
   document.getElementById('tab-btn-usuarios').className = abaAtiva === 'usuarios' ? 'btn-primario' : 'btn-secundario';
   document.getElementById('tab-btn-guia').className = abaAtiva === 'guia' ? 'btn-primario' : 'btn-secundario';
+  document.getElementById('tab-btn-visitas').className = abaAtiva === 'visitas' ? 'btn-primario' : 'btn-secundario';
 
   if (abaAtiva === 'usuarios') {
     carregarPerfis().then(renderizarUsuariosAdmin);
+  }
+  if (abaAtiva === 'visitas') {
+    carregarVisitasAdmin();
   }
 }
 
@@ -852,7 +858,9 @@ function registrarEventos() {
   // Abas do Painel Admin
   document.getElementById('tab-btn-livro').onclick = () => ativarAbaAdmin('livro');
   document.getElementById('tab-btn-usuarios').onclick = () => ativarAbaAdmin('usuarios');
+  document.getElementById('tab-btn-visitas').onclick = () => ativarAbaAdmin('visitas');
   document.getElementById('tab-btn-guia').onclick = () => ativarAbaAdmin('guia');
+  document.getElementById('btn-atualizar-visitas').onclick = carregarVisitasAdmin;
 
   // Gêneros e busca de livros
   document.getElementById('busca-genero-admin').oninput = filtrarGenerosAdmin;
@@ -1000,6 +1008,9 @@ montarSeletoresDeGenero();
 registrarEventos();
 aplicarPaginaApp('inicio', false);
 iniciarMonitoramentoRecuperacaoSenha();
+inicializarRastreamentoVisitas().catch(error => {
+  console.error('Não foi possível registrar a visita ao site:', error);
+});
 carregarGuia();
 carregarEncontros().then(async () => {
   await verificarSessao();

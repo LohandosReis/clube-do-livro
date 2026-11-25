@@ -314,6 +314,7 @@
       <div class="abas-admin">
         <button type="button" id="tab-btn-livro" class="btn-primario">📖 Gerenciar Livros / Encontros</button>
         <button type="button" id="tab-btn-usuarios" class="btn-secundario">👥 Usuários e Permissões</button>
+        <button type="button" id="tab-btn-visitas" class="btn-secundario">📊 Acessos ao site</button>
         <button type="button" id="tab-btn-guia" class="btn-secundario">🧭 Editar Guia de Discussão</button>
       </div>
       <p class="texto-suave">O Admin Master pode moderar publicações públicas de membros — resenhas, comentários, respostas, indicações, avaliações, votos e cartões compartilhados — nas respectivas seções. A moderação não apaga registros privados de leitura, edições, metas, dados pessoais de perfil ou contas. A exclusão de um livro será bloqueada enquanto houver progresso ou edição pessoal vinculados.</p>
@@ -402,7 +403,19 @@
         <div id="lista-usuarios-admin" class="lista-usuarios-admin">Carregando usuários...</div>
       </div>
 
-      <!-- ABA 3: EDITAR GUIA DE DISCUSSÃO -->
+      <!-- ABA 3: ACESSOS AO SITE -->
+      <div id="aba-visitas" class="oculto" style="margin-top:1rem;">
+        <div class="visitas-admin-cabecalho">
+          <div>
+            <h2>📊 Acessos ao site</h2>
+            <p class="texto-suave">Uma visita corresponde a uma sessão; após 30 minutos sem atividade, uma nova visita é contada. Registros vencidos são removidos na próxima visita ou atualização do painel. Anônimos aparecem somente como totais de sessões, não como pessoas únicas.</p>
+          </div>
+          <button type="button" id="btn-atualizar-visitas" class="btn-secundario">Atualizar acessos</button>
+        </div>
+        <div id="admin-visitas-conteudo" class="visitas-admin-conteudo" aria-live="polite">Selecione esta aba para carregar os acessos.</div>
+      </div>
+
+      <!-- ABA 4: EDITAR GUIA DE DISCUSSÃO -->
       <div id="aba-guia" class="oculto" style="margin-top:1rem;">
         <h2>🧭 Personalizar Guia de Discussão e Orientações</h2>
         <p><small>Adapte as perguntas e o roteiro de acordo com o gênero ou livro que o clube está lendo.</small></p>
@@ -614,6 +627,10 @@
     <section id="lista-encontros" class="modulos-container" data-pagina-app="livros"></section>
   </main>
 
+  <footer class="aviso-visitas-site">
+    <small>Para estatísticas do clube, contamos uma visita por sessão; após 30 minutos sem atividade, uma nova sessão é contada. O Admin Master pode ver o nome e o horário dos membros conectados; visitantes sem login aparecem somente em totais agregados, sem identificação de pessoas únicas. Os registros vencem após 12 meses e são removidos na próxima visita ou atualização do painel. Usamos um identificador aleatório de sessão, sem coletar IP ou impressão digital do aparelho.</small>
+  </footer>
+
   <script src="src/js/core/config.js"></script>
   <script src="src/js/auth/auth.js"></script>
   <script src="src/js/livros/api.js"></script>
@@ -623,6 +640,7 @@
   <script src="src/js/ui/perfis.js"></script>
   <script src="src/js/ui/metricas.js"></script>
   <script src="src/js/ui/biblioteca.js"></script>
+  <script src="src/js/ui/visitas.js"></script>
   <script src="src/js/app.js"></script>
   <script>
     (() => {

@@ -126,6 +126,7 @@ O tema editorial usa tons de papel e marfim como base, verde-oliva escuro para n
 - A moderação não apaga dados pessoais de perfil, metas, métricas pessoais nem contas de autenticação.
 - O Admin Master também pode remover cartões de progresso publicados por membros; curtidas e comentários do cartão são removidos em cascata, sem apagar registros ou métricas de leitura.
 - Excluir uma publicação de livro não apaga registros privados: a exclusão é bloqueada pelo banco enquanto houver progresso ou edição pessoal vinculados.
+- O painel Admin Master mostra sessões de membros (nome, horários e contagem) e apenas totais agregados de sessões anônimas, sem identificar pessoas únicas. Cada sessão é renovada após 30 minutos de inatividade; registros vencidos após 12 meses são removidos na próxima visita ou atualização do painel. O site não coleta IP nem impressão digital do aparelho.
 - Novos comentários, avaliações e indicações feitos pelo Admin Master ficam associados à própria conta; o sistema não permite publicar em nome de outro membro.
 - Metas, registros e edições pessoais, campos privados de perfil e contas de autenticação não são gerenciados pelo painel administrativo.
 
@@ -428,6 +429,10 @@ Armazena os campos básicos do perfil. O e-mail é privado e não pode ser consu
 ### `perfis_clube_detalhes`
 
 Armazena informações opcionais do perfil e preferências independentes de privacidade. O acesso direto à tabela é limitado ao próprio membro; o site usa funções SQL que retornam somente os campos autorizados.
+
+### `clube_visitas_site`
+
+Armazena uma sessão por visita, usando um identificador aleatório temporário do navegador. O acesso à tabela é bloqueado diretamente por RLS; funções SQL registram sessões e entregam ao Admin Master somente os dados autorizados. Nomes e horários são apresentados para membros conectados; visitantes anônimos aparecem somente em totais agregados. Os registros vencem após 12 meses e são removidos na próxima visita ou atualização do painel, sem coleta de endereço IP ou impressão digital do aparelho.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|

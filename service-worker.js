@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clube-do-livro-shell-v4';
+const CACHE_NAME = 'clube-do-livro-shell-v5';
 const SHELL_FILES = [
   './index.html',
   './manifest.webmanifest',
@@ -16,6 +16,7 @@ const SHELL_FILES = [
   './src/js/ui/perfis.js',
   './src/js/ui/metricas.js',
   './src/js/ui/biblioteca.js',
+  './src/js/ui/visitas.js',
   './src/js/app.js'
 ];
 const SHELL_URLS = new Set(
