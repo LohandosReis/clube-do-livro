@@ -248,9 +248,7 @@ function renderizarPerfilCompartilhado(perfil) {
 function atualizarPlacar() {
   const concluidos = estadoApp.encontros.filter(i => i.status === 'lido');
   const paginasConcluidas = concluidos.reduce((acc, i) => acc + (i.paginas_totais || 0), 0);
-  const paginasEmAndamento = estadoApp.encontros
-    .filter(i => i.status === 'atual')
-    .reduce((acc, i) => acc + (i.pagina_meta || 0), 0);
+  const paginasGrupoAtual = Number(estadoApp.metricasGrupo?.total_paginas) || 0;
 
   const mediasCalculadas = concluidos
     .map(i => calcularMediaLivro(i.id, i.nota).media)
@@ -262,7 +260,7 @@ function atualizarPlacar() {
     : '-';
 
   document.getElementById('stat-livros').textContent = concluidos.length;
-  document.getElementById('stat-paginas').textContent = paginasConcluidas + paginasEmAndamento;
+  document.getElementById('stat-paginas').textContent = paginasConcluidas + paginasGrupoAtual;
   document.getElementById('stat-media').textContent = mediaGeral !== '-' ? `${mediaGeral} / 5` : '-';
 }
 
@@ -931,6 +929,48 @@ function renderizarBlocoComentarios(encontroId) {
   `;
 }
 
+function renderizarProgressoGrupo(atual) {
+  const metricas = estadoApp.metricasGrupo;
+  if (
+    !metricas
+    || !Object.prototype.hasOwnProperty.call(metricas, 'participantes_com_progresso')
+    || !Object.prototype.hasOwnProperty.call(metricas, 'progresso_medio_percentual')
+    || !Object.prototype.hasOwnProperty.call(metricas, 'paginas_medias_por_membro')
+  ) {
+    return '<small>Não foi possível carregar o progresso coletivo. Verifique a conexão e se a migração atualizada do Supabase foi aplicada.</small>';
+  }
+
+  const totalPaginasGrupo = Math.max(0, Number(metricas.total_paginas) || 0);
+  const participantes = Math.max(0, Number(metricas.participantes_com_progresso) || 0);
+  const totalPaginasLivro = Math.max(0, Number(atual.paginas_totais) || 0);
+
+  if (participantes === 0) {
+    const orientacaoPaginas = totalPaginasLivro === 0
+      ? ' Informe o total de páginas do livro para calcular o percentual.'
+      : '';
+    return `
+      <small>O grupo ainda não registrou páginas lidas neste livro.${orientacaoPaginas}</small>
+      ${totalPaginasLivro > 0 ? '<div class="progresso-container"><div class="progresso-barra" style="width:0%"></div></div>' : ''}
+    `;
+  }
+
+  if (totalPaginasLivro === 0) {
+    const textoParticipantes = participantes === 1 ? '1 participante' : `${participantes} participantes`;
+    return `<small>O grupo registrou ${totalPaginasGrupo} páginas de ${textoParticipantes}. Informe o total de páginas do livro para calcular o percentual.</small>`;
+  }
+
+  const percentual = Math.min(100, Math.max(0, Number(metricas.progresso_medio_percentual) || 0));
+  const paginasMedias = Math.max(0, Number(metricas.paginas_medias_por_membro) || 0);
+  const percentualFormatado = percentual.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  const paginasMediasFormatadas = paginasMedias.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
+  return `
+    <small><strong>Progresso médio do grupo: ${percentualFormatado}%</strong></small>
+    <small>${paginasMediasFormatadas} de ${totalPaginasLivro} páginas por membro com registros; ${participantes} ${participantes === 1 ? 'participante' : 'participantes'} e ${totalPaginasGrupo} páginas registradas no total.</small>
+    <div class="progresso-container"><div class="progresso-barra" style="width:${percentual}%"></div></div>
+  `;
+}
+
 function renderizarTela() {
   const tipoFiltro = document.getElementById('filtro-tipo').value;
   const statusFiltro = document.getElementById('filtro-status').value;
@@ -941,10 +981,6 @@ function renderizarTela() {
   const divAtual = document.getElementById('conteudo-atual');
 
   if (atual) {
-    const pct = atual.paginas_totais > 0
-      ? Math.min(100, Math.round((atual.pagina_meta / atual.paginas_totais) * 100))
-      : 0;
-
     divAtual.innerHTML = `
       <div class="modulo-info-topo">
         <img src="${escaparHTML(atual.capa || 'https://placehold.co/65x95?text=Capa')}" alt="Capa de ${escaparHTML(atual.titulo)}">
@@ -953,10 +989,7 @@ function renderizarTela() {
           <h3 style="margin:6px 0 4px 0;">${escaparHTML(atual.titulo)} — <small>${escaparHTML(atual.autor)}</small></h3>
           <p style="margin:4px 0;">📅 <strong>Data do Encontro:</strong> ${escaparHTML(formatarDataBR(atual.data_encontro))} ${atual.horario_local ? `(${escaparHTML(atual.horario_local)})` : ''}</p>
           ${atual.meta_texto ? `<p style="margin:4px 0;"><strong>🎯 Meta Atual:</strong> ${escaparHTML(atual.meta_texto)}</p>` : ''}
-          ${atual.paginas_totais > 0
-            ? `<small>Progresso da leitura física: Pág. ${atual.pagina_meta} de ${atual.paginas_totais} (${pct}%)</small>
-               <div class="progresso-container"><div class="progresso-barra" style="width:${pct}%"></div></div>`
-            : ''}
+          ${renderizarProgressoGrupo(atual)}
           <a class="btn-agenda" href="${gerarLinkGoogleAgenda(atual)}" target="_blank" rel="noopener noreferrer">📅 Salvar no Google Agenda</a>
         </div>
       </div>

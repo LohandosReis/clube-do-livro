@@ -1051,6 +1051,7 @@ set search_path = public, pg_temp
 as $$
 declare
   resultado jsonb;
+  progresso_coletivo jsonb;
 begin
   if not exists (
     select 1
@@ -1065,6 +1066,9 @@ begin
       'paginas_semana', 0,
       'paginas_mes', 0,
       'leitores_ativos', 0,
+      'participantes_com_progresso', 0,
+      'paginas_medias_por_membro', 0,
+      'progresso_medio_percentual', 0,
       'atividade_anonima', '[]'::jsonb
     );
   end if;
@@ -1102,7 +1106,37 @@ begin
   where p.encontro_id = p_encontro_id
     and p.data_leitura <= current_date;
 
-  return resultado;
+  select jsonb_build_object(
+    'participantes_com_progresso', count(pessoa.usuario_id),
+    'paginas_medias_por_membro', coalesce(
+      round(avg(least(pessoa.paginas, livro.paginas_totais)), 1),
+      0
+    ),
+    'progresso_medio_percentual', coalesce(
+      round(
+        100.0 * avg(least(pessoa.paginas, livro.paginas_totais))
+          / nullif(livro.paginas_totais, 0),
+        1
+      ),
+      0
+    )
+  )
+  into progresso_coletivo
+  from (
+    select p.usuario_id, sum(p.paginas_lidas)::numeric as paginas
+    from public.progresso_leitura p
+    where p.encontro_id = p_encontro_id
+      and p.data_leitura <= current_date
+    group by p.usuario_id
+    having sum(p.paginas_lidas) > 0
+  ) pessoa
+  cross join (
+    select e.paginas_totais
+    from public.encontros e
+    where e.id = p_encontro_id
+  ) livro;
+
+  return resultado || progresso_coletivo;
 end;
 $$;
 

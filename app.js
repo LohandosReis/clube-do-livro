@@ -54,7 +54,6 @@ document.getElementById('form-resenha-individual').onsubmit = async (e) => {
     data_encontro: itemExistente?.data_encontro || hojeISO,
     horario_local: itemExistente?.horario_local || `Leitura individual de ${nomeAutor}`,
     paginas_totais: paginas,
-    pagina_meta: 0,
     meta_texto: '',
     nota,
     bio_autor: '',
@@ -129,7 +128,6 @@ window.prepararEdicao = (id) => {
   document.getElementById('encontro-data').value = item.data_encontro || '';
   document.getElementById('encontro-local').value = item.horario_local || '';
   document.getElementById('livro-paginas-totais').value = item.paginas_totais || '';
-  document.getElementById('livro-pagina-meta').value = item.pagina_meta || '';
   document.getElementById('livro-meta-texto').value = item.meta_texto || '';
   document.getElementById('livro-nota').value = item.nota ?? '';
   document.getElementById('autor-bio').value = item.bio_autor || '';
@@ -801,14 +799,10 @@ function registrarEventos() {
     }
 
     const paginasTotais = parseInt(document.getElementById('livro-paginas-totais').value, 10) || 0;
-    const paginaMeta = parseInt(document.getElementById('livro-pagina-meta').value, 10) || 0;
     const notaRaw = document.getElementById('livro-nota').value;
     const nota = notaRaw !== '' ? parseFloat(notaRaw) : null;
-    if (paginasTotais < 0 || paginaMeta < 0) {
+    if (paginasTotais < 0) {
       return alert('Páginas não podem ser negativas.');
-    }
-    if (paginasTotais > 0 && paginaMeta > paginasTotais) {
-      return alert('A página atual/meta não pode ser maior que o total de páginas.');
     }
     if (nota !== null && (Number.isNaN(nota) || nota < 0 || nota > 5)) {
       return alert('A nota deve estar entre 0 e 5.');
@@ -846,7 +840,7 @@ function registrarEventos() {
         data_encontro: document.getElementById('encontro-data').value,
         horario_local: document.getElementById('encontro-local').value.trim(),
         paginas_totais: paginasTotais,
-        pagina_meta: paginaMeta,
+        pagina_meta: 0,
         meta_texto: document.getElementById('livro-meta-texto').value.trim(),
         nota,
         bio_autor: document.getElementById('autor-bio').value.trim(),

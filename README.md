@@ -65,12 +65,13 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 - Destaque da leitura com status `atual`.
 - Exibição da data, local ou horário do encontro.
 - Meta textual da leitura.
-- Progressão por página atual e total de páginas.
-- Barra de progresso com limite máximo de 100%.
+- Barra de progresso coletivo calculada pela média do percentual lido pelos membros que registraram páginas para o livro atual.
+- O percentual de cada participante é limitado a 100%; a tela também informa a média de páginas por participante e o total de páginas registrado pelo grupo.
+- O campo de total de páginas é necessário para calcular o percentual coletivo.
 - Criação de evento no Google Agenda.
 - Estatísticas gerais:
   - quantidade de livros concluídos;
-  - páginas concluídas e em progresso;
+  - páginas de livros concluídos e páginas registradas pelo grupo no livro atual;
   - média geral das notas.
 
 ### Catálogo e histórico
@@ -146,6 +147,8 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 ### Métricas do grupo
 
 - Mostra totais do livro atual, hoje, semana e mês.
+- Calcula o progresso médio do livro atual usando apenas os registros dos membros, sem exibir dados individuais.
+- Conta como participante quem registrou mais de zero páginas para o livro atual.
 - Conta membros ativos nos últimos sete dias.
 - Exibe atividade diária somente quando há ao menos três leitores naquele dia; os nomes de animais são aleatórios e não identificam membros.
 - Exibe cartões públicos somente de membros que ativaram explicitamente a publicação.
@@ -383,7 +386,7 @@ Representa tanto os módulos principais do clube quanto resenhas individuais.
 | `data_encontro` | `date` | Data do encontro ou publicação. |
 | `horario_local` | `text` | Horário, local ou descrição da leitura individual. |
 | `paginas_totais` | `integer` | Quantidade total de páginas. |
-| `pagina_meta` | `integer` | Página atual ou meta alcançada. |
+| `pagina_meta` | `integer` | Campo legado mantido para compatibilidade; não é usado no progresso coletivo atual. |
 | `meta_texto` | `text` | Descrição da meta semanal. |
 | `nota` | `numeric(3,1)` | Nota de referência ou nota do autor da resenha. |
 | `bio_autor` | `text` | Contexto sobre o autor ou obra. |
@@ -397,7 +400,7 @@ Representa tanto os módulos principais do clube quanto resenhas individuais.
 Restrições:
 
 - páginas não podem ser negativas;
-- `pagina_meta` não pode superar `paginas_totais`;
+- `pagina_meta` (campo legado) não pode superar `paginas_totais`;
 - nota deve estar entre 0 e 5.
 
 ### `guia_clube`
@@ -554,7 +557,7 @@ Leituras do clube, comentários, indicações e avaliações publicadas podem se
 - cada usuário pode ler, editar e apagar apenas seus próprios registros diários;
 - cada usuário pode consultar e alterar somente suas metas em `metas_leitura`;
 - o Admin Master não tem leitura direta desses registros;
-- `clube_metricas_grupo()` retorna somente totais coletivos, sem IDs ou linhas individuais;
+- `clube_metricas_grupo()` retorna somente métricas agregadas, sem IDs ou linhas individuais;
 - `clube_cartoes_progresso_publicos()` retorna somente cartões publicados explicitamente;
 - o cartão só é mostrado publicamente após o usuário habilitar a publicação.
 
