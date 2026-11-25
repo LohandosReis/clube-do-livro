@@ -764,6 +764,22 @@ function registrarEventos() {
 
   document.getElementById('btn-sair').onclick = sairDaConta;
 
+  document.getElementById('form-edicao-leitura').onsubmit = async (event) => {
+    event.preventDefault();
+    const botao = document.getElementById('btn-salvar-edicao');
+    botao.disabled = true;
+    botao.textContent = 'Salvando...';
+    try {
+      await salvarEdicaoLeitura(
+        document.getElementById('edicao-leitura-nome').value,
+        document.getElementById('edicao-leitura-paginas').value
+      );
+    } finally {
+      botao.disabled = false;
+      botao.textContent = 'Salvar edição';
+    }
+  };
+
   document.getElementById('form-progresso-leitura').onsubmit = async (event) => {
     event.preventDefault();
     const botao = document.getElementById('btn-salvar-progresso');

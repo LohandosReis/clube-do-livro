@@ -528,6 +528,7 @@ async function carregarComunidade() {
 
 async function carregarProgressoLeitura() {
   estadoApp.progressoLeitura = [];
+  estadoApp.edicaoLeitura = null;
   estadoApp.metasLeitura = null;
   estadoApp.progressoPublicado = null;
   if (!estadoApp.usuario) {
@@ -546,8 +547,16 @@ async function carregarProgressoLeitura() {
         .eq('encontro_id', atual.id)
         .maybeSingle()
     : Promise.resolve({ data: null, error: null });
+  const consultaEdicao = atual
+    ? supabaseClient
+        .from('edicoes_leitura')
+        .select('edicao,paginas_totais')
+        .eq('usuario_id', estadoApp.usuario.id)
+        .eq('encontro_id', atual.id)
+        .maybeSingle()
+    : Promise.resolve({ data: null, error: null });
 
-  const [resProgresso, resPublicacao, resMetas] = await Promise.all([
+  const [resProgresso, resPublicacao, resMetas, resEdicao] = await Promise.all([
     supabaseClient
       .from('progresso_leitura')
       .select('*')
@@ -558,7 +567,8 @@ async function carregarProgressoLeitura() {
       .from('metas_leitura')
       .select('paginas_dia,paginas_semana')
       .eq('usuario_id', estadoApp.usuario.id)
-      .maybeSingle()
+      .maybeSingle(),
+    consultaEdicao
   ]);
 
   if (resProgresso.error) {
@@ -578,6 +588,12 @@ async function carregarProgressoLeitura() {
     console.warn('Erro ao carregar metas pessoais:', resMetas.error.message);
   } else {
     estadoApp.metasLeitura = resMetas.data || null;
+  }
+
+  if (resEdicao.error) {
+    console.warn('Erro ao carregar a edição pessoal do livro:', resEdicao.error.message);
+  } else {
+    estadoApp.edicaoLeitura = resEdicao.data || null;
   }
 
   renderizarAcompanhamentoLeitura();
@@ -756,6 +772,52 @@ window.editarComentarioProgressoCompartilhado = async (comentarioId) => {
   await carregarMetricasGrupo();
 };
 
+window.salvarEdicaoLeitura = async (nomeEdicao, paginas) => {
+  if (!estadoApp.usuario) return alert('Entre na sua conta para salvar sua edição.');
+
+  const atual = estadoApp.encontros.find(
+    item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
+  );
+  if (!atual) return alert('Não existe uma leitura atual cadastrada.');
+
+  const edicao = String(nomeEdicao || '').trim();
+  const paginasTotais = Number(paginas);
+  if (!edicao || edicao.length > 120) {
+    return alert('Informe uma edição ou editora com até 120 caracteres.');
+  }
+  if (!Number.isInteger(paginasTotais) || paginasTotais < 1 || paginasTotais > 100000) {
+    return alert('Informe o total de páginas da edição, entre 1 e 100.000.');
+  }
+
+  const edicaoAnterior = estadoApp.edicaoLeitura;
+  const edicaoAlterada = edicaoAnterior && (
+    edicaoAnterior.edicao !== edicao ||
+    Number(edicaoAnterior.paginas_totais) !== paginasTotais
+  );
+  const possuiLeitura = estadoApp.progressoLeitura.some(item =>
+    String(item.encontro_id) === String(atual.id) && Number(item.paginas_lidas) > 0
+  );
+  if (edicaoAlterada && possuiLeitura &&
+      !confirm('Alterar a edição recalculará seu percentual e as métricas agrupadas. Deseja continuar?')) return;
+
+  const { error } = await supabaseClient
+    .from('edicoes_leitura')
+    .upsert({
+      usuario_id: estadoApp.usuario.id,
+      encontro_id: atual.id,
+      edicao,
+      paginas_totais: paginasTotais,
+      atualizado_em: new Date().toISOString()
+    }, { onConflict: 'usuario_id,encontro_id' });
+
+  if (error) return alert('Erro ao salvar sua edição: ' + error.message);
+
+  limparCartaoProgresso();
+  await carregarProgressoLeitura();
+  await carregarMetricasGrupo();
+  alert('Sua edição foi salva. Seu progresso será calculado usando o total de páginas informado.');
+};
+
 window.salvarProgressoLeitura = async (dataLeitura, paginas) => {
   if (!estadoApp.usuario) {
     alert('Entre na sua conta para registrar sua leitura.');
@@ -767,6 +829,16 @@ window.salvarProgressoLeitura = async (dataLeitura, paginas) => {
     item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
   );
   if (!atual) return alert('Não existe uma leitura atual cadastrada.');
+  if (
+    !estadoApp.edicaoLeitura ||
+    !String(estadoApp.edicaoLeitura.edicao || '').trim() ||
+    estadoApp.edicaoLeitura.edicao === 'Edição não informada' ||
+    !Number.isInteger(Number(estadoApp.edicaoLeitura.paginas_totais)) ||
+    Number(estadoApp.edicaoLeitura.paginas_totais) < 1 ||
+    Number(estadoApp.edicaoLeitura.paginas_totais) > 100000
+  ) {
+    return alert('Antes de registrar páginas, informe sua edição e o total de páginas da sua cópia.');
+  }
 
   const paginasInt = parseInt(paginas, 10);
   if (!dataLeitura) return alert('Selecione a data da leitura.');
@@ -944,7 +1016,8 @@ function obterDadosCartaoProgresso() {
     (total, item) => total + (Number(item.paginas_lidas) || 0),
     0
   );
-  const totalLivro = Number(atual.paginas_totais) || 0;
+  const edicaoLeitura = estadoApp.edicaoLeitura;
+  const totalLivro = Number(edicaoLeitura?.paginas_totais) || 0;
   const percentual = totalLivro
     ? Math.min(100, Math.round((paginasLidas / totalLivro) * 100))
     : null;
@@ -955,6 +1028,7 @@ function obterDadosCartaoProgresso() {
     atual,
     paginasLidas,
     totalLivro,
+    edicao: edicaoLeitura?.edicao || '',
     percentual,
     nome: incluirNome ? (estadoApp.perfilUsuario?.nome || '') : '',
     fotoUrl: incluirFoto ? (estadoApp.perfilUsuario?.foto_url || '') : ''
@@ -1044,20 +1118,25 @@ window.gerarCartaoProgresso = async () => {
   ctx.fillStyle = '#5d6672';
   ctx.font = '30px Arial, sans-serif';
   desenharTextoQuebrado(ctx, dados.atual.autor, xTexto, 500, 500, 40, 2);
+  if (dados.edicao) {
+    ctx.fillStyle = '#5d6672';
+    ctx.font = '24px Arial, sans-serif';
+    desenharTextoQuebrado(ctx, `${dados.edicao} · ${dados.totalLivro} páginas`, xTexto, 555, 500, 32, 2);
+  }
 
   if (dados.fotoUrl && fotoPerfil) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(xTexto + 38, 610, 34, 0, Math.PI * 2);
+    ctx.arc(xTexto + 38, 660, 34, 0, Math.PI * 2);
     ctx.clip();
-    ctx.drawImage(fotoPerfil, xTexto + 4, 576, 68, 68);
+    ctx.drawImage(fotoPerfil, xTexto + 4, 626, 68, 68);
     ctx.restore();
   }
 
   if (dados.nome) {
     ctx.fillStyle = '#24426b';
     ctx.font = '600 27px Arial, sans-serif';
-    ctx.fillText(`Lendo com ${dados.nome}`, dados.fotoUrl && fotoPerfil ? xTexto + 88 : xTexto, 620);
+    ctx.fillText(`Lendo com ${dados.nome}`, dados.fotoUrl && fotoPerfil ? xTexto + 88 : xTexto, 670);
   }
 
   ctx.fillStyle = '#24426b';
@@ -1115,7 +1194,7 @@ window.compartilharCartaoProgresso = async () => {
 
   const dados = obterDadosCartaoProgresso();
   if (!dados) return;
-  const texto = `Estou lendo "${dados.atual.titulo}" no Clube do Livro e já registrei ${dados.paginasLidas} páginas${dados.percentual !== null ? ` (${dados.percentual}%)` : ''}.`;
+  const texto = `Estou lendo "${dados.atual.titulo}"${dados.edicao ? ` (${dados.edicao}, ${dados.totalLivro} páginas)` : ''} no Clube do Livro e já registrei ${dados.paginasLidas} páginas${dados.percentual !== null ? ` (${dados.percentual}%)` : ''}.`;
   if (typeof File === 'undefined') {
     return alert('Este navegador não permite compartilhar arquivos. Use “Baixar imagem” para salvar o cartão.');
   }

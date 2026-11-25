@@ -65,9 +65,10 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 - Destaque da leitura com status `atual`.
 - Exibição da data, local ou horário do encontro.
 - Meta textual da leitura.
-- Barra de progresso coletivo calculada pela média do percentual lido pelos membros que registraram páginas para o livro atual.
-- O percentual de cada participante é limitado a 100%; a tela também informa a média de páginas por participante e o total de páginas registrado pelo grupo.
-- O campo de total de páginas é necessário para calcular o percentual coletivo.
+- Cada membro informa a edição/formato e o total de páginas do próprio exemplar.
+- A barra coletiva calcula a média dos percentuais individuais usando o total de páginas de cada exemplar, sem aplicar o número de páginas de uma edição a todas as outras.
+- O percentual individual é limitado a 100%; a tela informa quantas pessoas cadastraram uma edição e quantas registraram páginas.
+- As métricas do grupo também são agrupadas pela identificação da edição e pelo total de páginas.
 - Criação de evento no Google Agenda.
 - Estatísticas gerais:
   - quantidade de livros concluídos;
@@ -133,6 +134,8 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 
 - Um usuário autenticado pode registrar quantas páginas leu em cada data.
 - Os registros são separados por usuário e pela leitura atual.
+- A edição, editora/formato e quantidade total de páginas do exemplar são cadastradas separadamente por membro e livro. Novos registros de leitura exigem essa configuração.
+- O progresso pessoal, as páginas restantes e o ritmo até o encontro usam o total de páginas do exemplar do próprio membro.
 - Cada membro pode excluir seus próprios registros diários pela lista de registros.
 - A interface mostra os totais de hoje, da semana atual, do mês atual e do período registrado.
 - A tela calcula média por dia ativo e sequência de dias consecutivos.
@@ -145,13 +148,15 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 - Os registros são preservados quando o clube conclui um livro e agrupados pelo ano de `data_leitura`.
 - O cartão individual pode ser gerado, baixado ou compartilhado; incluir o nome é opcional.
 - A foto do perfil no cartão também pode ser incluída ou omitida.
+- Os cartões publicados no site mostram a identificação e a paginação do exemplar escolhido pelo membro.
 - A publicação do cartão no site é opt-in e pode ser retirada pela própria pessoa.
 
 ### Métricas do grupo
 
 - Mostra totais do livro atual, hoje, semana e mês.
 - Calcula o progresso médio do livro atual usando apenas os registros dos membros, sem exibir dados individuais.
-- Conta como participante quem registrou mais de zero páginas para o livro atual.
+- Calcula o percentual de cada membro com o total de páginas da edição individual e agrupa o resultado por edição e paginação.
+- Conta quem cadastrou uma edição separadamente de quem já registrou páginas.
 - Conta membros ativos nos últimos sete dias.
 - Exibe atividade diária somente quando há ao menos três leitores naquele dia; os nomes de animais são aleatórios e não identificam membros.
 - Exibe cartões públicos somente de membros que ativaram explicitamente a publicação.
@@ -406,6 +411,8 @@ Restrições:
 - `pagina_meta` (campo legado) não pode superar `paginas_totais`;
 - nota deve estar entre 0 e 5.
 
+`encontros.paginas_totais` continua como informação geral do catálogo e referência para a migração de dados antigos. O denominador das métricas pessoais e coletivas vem de `edicoes_leitura`.
+
 ### `guia_clube`
 
 | Coluna | Tipo | Descrição |
@@ -492,6 +499,22 @@ Chave primária composta: `(usuario_id, encontro_id, data_leitura)`.
 
 Os registros são privados entre usuários e também não são acessíveis ao Admin Master diretamente. Uma função SQL privilegiada retorna apenas estatísticas agregadas para o painel do grupo.
 
+### `edicoes_leitura`
+
+Armazena a identificação e a paginação do exemplar escolhido por cada membro para um livro:
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `usuario_id` | `uuid` | Dono da configuração. |
+| `encontro_id` | `bigint` | Livro do clube associado à edição. |
+| `edicao` | `text` | Editora, edição, ano ou formato informado pelo membro. |
+| `paginas_totais` | `integer` | Quantidade total de páginas daquele exemplar. |
+| `atualizado_em` | `timestamptz` | Última atualização da configuração. |
+
+Chave primária composta: `(usuario_id, encontro_id)`. A configuração é privada via RLS. Os relatórios coletivos expõem apenas agregados. Para agrupar métricas, o sistema normaliza maiúsculas/minúsculas e espaços externos do rótulo, e também considera o total de páginas; portanto, cópias com paginações diferentes permanecem em grupos distintos.
+
+Na primeira execução da migração, leituras já existentes recebem a etiqueta `Edição não informada` e o total de páginas então cadastrado para o livro, para preservar os cálculos anteriores. O membro deve substituir essa etiqueta pelo dado real antes de inserir novas leituras.
+
 ### `progresso_leitura_compartilhado`
 
 Armazena apenas a decisão explícita de publicar um cartão e se o nome pode aparecer:
@@ -558,9 +581,10 @@ Leituras do clube, comentários, indicações e avaliações publicadas podem se
 ### Progresso de leitura
 
 - cada usuário pode ler, editar e apagar apenas seus próprios registros diários;
+- cada usuário pode consultar e alterar somente a edição e a paginação de seu próprio exemplar;
 - cada usuário pode consultar e alterar somente suas metas em `metas_leitura`;
 - o Admin Master não tem leitura direta desses registros;
-- `clube_metricas_grupo()` retorna somente métricas agregadas, sem IDs ou linhas individuais;
+- `clube_metricas_grupo()` retorna somente métricas agregadas, sem IDs ou linhas individuais, agrupadas pela edição e pela quantidade de páginas;
 - `clube_cartoes_progresso_publicos()` retorna somente cartões publicados explicitamente;
 - o cartão só é mostrado publicamente após o usuário habilitar a publicação.
 

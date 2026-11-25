@@ -1201,6 +1201,57 @@ details.spoiler-box summary {
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }
 
+.progresso-por-edicao {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--cor-superficie-suave);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+}
+
+.progresso-por-edicao h3 {
+  margin: 0 0 0.4rem;
+}
+
+.progresso-por-edicao > p {
+  margin: 0 0 0.8rem;
+  color: var(--texto-suave);
+  font-size: 0.86rem;
+}
+
+.metricas-edicoes-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.7rem;
+}
+
+.metrica-edicao-item {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.8rem;
+  background: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-sm);
+}
+
+.metrica-edicao-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+}
+
+.metrica-edicao-cabecalho span,
+.metrica-edicao-item small {
+  color: var(--texto-suave);
+  font-size: 0.82rem;
+}
+
+.metrica-edicao-percentual {
+  color: var(--cor-primaria);
+}
+
 .atividade-anonima,
 .historico-semanal,
 .compartilhamento-progresso,
@@ -1429,6 +1480,7 @@ details.spoiler-box summary {
 }
 
 .form-metas-leitura,
+.form-edicao-leitura,
 .arquivo-anual-leitura {
   margin-bottom: 1rem;
   padding: 1rem;
@@ -1438,12 +1490,14 @@ details.spoiler-box summary {
 }
 
 .form-metas-leitura h3,
+.form-edicao-leitura h3,
 .arquivo-anual-cabecalho h3 {
   margin: 0 0 0.4rem;
   font-size: 1.05rem;
 }
 
 .form-metas-leitura p,
+.form-edicao-leitura p,
 .arquivo-anual-cabecalho p,
 .metas-leitura-vazio {
   margin: 0 0 0.8rem;
@@ -1453,6 +1507,23 @@ details.spoiler-box summary {
 
 .form-metas-leitura .linha-dupla {
   margin-bottom: 0.65rem;
+}
+
+.form-edicao-leitura {
+  margin-bottom: 1rem;
+}
+
+.form-edicao-leitura .linha-dupla {
+  margin-bottom: 0.65rem;
+}
+
+.aviso-edicao-leitura {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  color: #743b00;
+  background: #fff3d6;
+  border: 1px solid #e8c77d;
+  border-radius: var(--raio-sm);
 }
 
 .painel-metas-leitura:empty {

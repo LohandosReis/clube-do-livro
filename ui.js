@@ -403,6 +403,7 @@ function renderizarAcompanhamentoLeitura() {
   const tituloLivro = document.getElementById('acompanhamento-livro');
   const painel = document.getElementById('painel-desempenho-leitura');
   const campoData = document.getElementById('progresso-data');
+  const formularioEdicao = document.getElementById('form-edicao-leitura');
   const formulario = document.getElementById('form-progresso-leitura');
   const compartilhamento = document.querySelector('.compartilhamento-progresso');
   if (!secao || !painel) return;
@@ -424,6 +425,7 @@ function renderizarAcompanhamentoLeitura() {
   if (!atual) {
     tituloLivro.textContent = 'Não há uma leitura atual definida pelo clube.';
     painel.innerHTML = '<p>Nenhum livro em andamento está disponível para acompanhamento.</p>';
+    formularioEdicao.classList.add('oculto');
     formulario.classList.add('oculto');
     compartilhamento.classList.add('oculto');
     document.getElementById('progresso-incluir-nome').checked = false;
@@ -432,9 +434,24 @@ function renderizarAcompanhamentoLeitura() {
     return;
   }
 
+  formularioEdicao.classList.remove('oculto');
   formulario.classList.remove('oculto');
   compartilhamento.classList.remove('oculto');
-  tituloLivro.textContent = `Livro atual: ${atual.titulo} — ${atual.autor}`;
+  const edicaoLeitura = estadoApp.edicaoLeitura;
+  const totalPaginasEdicao = Number(edicaoLeitura?.paginas_totais) || 0;
+  const edicaoConfigurada = Boolean(
+    edicaoLeitura &&
+    edicaoLeitura.edicao !== 'Edição não informada' &&
+    totalPaginasEdicao > 0
+  );
+  const campoEdicao = document.getElementById('edicao-leitura-nome');
+  const campoPaginasEdicao = document.getElementById('edicao-leitura-paginas');
+  const avisoEdicao = document.getElementById('aviso-edicao-leitura');
+  if (campoEdicao) campoEdicao.value = edicaoLeitura?.edicao || '';
+  if (campoPaginasEdicao) campoPaginasEdicao.value = edicaoConfigurada ? totalPaginasEdicao : '';
+  if (avisoEdicao) avisoEdicao.classList.toggle('oculto', edicaoConfigurada);
+  document.getElementById('btn-salvar-progresso').disabled = !edicaoConfigurada;
+  tituloLivro.textContent = `Livro atual: ${atual.titulo} — ${atual.autor}${edicaoConfigurada ? ` · Sua edição: ${edicaoLeitura.edicao} (${totalPaginasEdicao} páginas)` : ''}`;
 
   if (campoData) {
     campoData.value = campoData.value || formatoDataLocal(new Date());
@@ -481,8 +498,11 @@ function renderizarAcompanhamentoLeitura() {
     (total, item) => total + (Number(item.paginas_lidas) || 0),
     0
   );
-  const paginasRestantes = atual.paginas_totais
-    ? Math.max(0, atual.paginas_totais - totalPaginasLidas)
+  const paginasRestantes = totalPaginasEdicao
+    ? Math.max(0, totalPaginasEdicao - totalPaginasLidas)
+    : null;
+  const progressoEdicao = totalPaginasEdicao
+    ? Math.min(100, Math.round(totalPaginasLidas / totalPaginasEdicao * 100))
     : null;
   const diasAteEncontro = atual.data_encontro
     ? Math.max(0, Math.ceil(
@@ -632,6 +652,12 @@ function renderizarAcompanhamentoLeitura() {
         <strong>${totalPaginas}</strong>
         <span>Total registrado</span>
       </div>
+      ${progressoEdicao !== null ? `
+        <div class="metrica-leitura">
+          <strong>${progressoEdicao}%</strong>
+          <span>Progresso da sua edição</span>
+        </div>
+      ` : ''}
       <div class="metrica-leitura">
         <strong>${mediaDia}</strong>
         <span>Média por dia ativo</span>
@@ -772,6 +798,34 @@ function renderizarMetricasGrupo() {
           </div>`;
         }).join('')
       : '<small>Ainda não há leituras registradas pelo grupo.</small>';
+    const temMetricasPorEdicao = Object.prototype.hasOwnProperty.call(metricas, 'progresso_por_edicao');
+    const edicoes = Array.isArray(metricas.progresso_por_edicao)
+      ? metricas.progresso_por_edicao
+      : [];
+    const edicoesHTML = !temMetricasPorEdicao
+      ? '<p>As métricas por edição ainda não estão disponíveis. Aplique a versão atualizada da migração do Supabase.</p>'
+      : edicoes.length
+        ? `<div class="metricas-edicoes-lista">
+            ${edicoes.map(edicao => {
+              const percentual = Math.min(100, Math.max(0, Number(edicao.progresso_medio_percentual) || 0));
+              const percentualTexto = percentual.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+              const participantes = Number(edicao.participantes) || 0;
+              const totalPaginas = Number(edicao.total_paginas) || 0;
+              const paginasPorExemplar = Number(edicao.paginas_totais) || 0;
+              return `
+                <article class="metrica-edicao-item">
+                  <div class="metrica-edicao-cabecalho">
+                    <strong>${escaparHTML(edicao.edicao || 'Edição não informada')}</strong>
+                    <span>${paginasPorExemplar} páginas por exemplar</span>
+                  </div>
+                  <small>${participantes} ${participantes === 1 ? 'participante' : 'participantes'} · ${totalPaginas} páginas registradas no total</small>
+                  <strong class="metrica-edicao-percentual">${percentualTexto}% de progresso médio</strong>
+                  <div class="progresso-container"><div class="progresso-barra" style="width:${percentual}%"></div></div>
+                </article>
+              `;
+            }).join('')}
+          </div>`
+        : '<p>As edições dos exemplares aparecerão aqui quando os membros as cadastrarem.</p>';
 
     painel.innerHTML = `
       <div class="metricas-leitura metricas-grupo">
@@ -781,6 +835,11 @@ function renderizarMetricasGrupo() {
         <div class="metrica-leitura"><strong>${Number(metricas.paginas_mes) || 0}</strong><span>Este mês</span></div>
         <div class="metrica-leitura"><strong>${Number(metricas.leitores_ativos) || 0}</strong><span>Membros ativos nos últimos 7 dias</span></div>
       </div>
+      <section class="progresso-por-edicao">
+        <h3>Progresso agrupado por edição</h3>
+        <p>O percentual médio de cada grupo considera o total de páginas informado para cada exemplar. Nenhum registro individual é exibido.</p>
+        ${edicoesHTML}
+      </section>
       <div class="atividade-anonima">
         <h3>Atividade anônima recente</h3>
         <p>Os nomes de animais são aleatórios e não identificam membros. A atividade diária só aparece quando há pelo menos três leitores naquele dia.</p>
@@ -806,6 +865,7 @@ function renderizarMetricasGrupo() {
         const paginas = Number(cartao.paginas_lidas) || 0;
         const total = Number(cartao.paginas_totais) || 0;
         const percentual = total ? Math.min(100, Math.round(paginas / total * 100)) : null;
+        const edicao = String(cartao.edicao || '').trim();
         const nome = cartao.mostrar_nome && cartao.nome
           ? cartao.nome
           : `${animais[Math.floor(Math.random() * animais.length)]} do Clube`;
@@ -816,6 +876,7 @@ function renderizarMetricasGrupo() {
             <div class="cartao-publico-conteudo">
               <strong>${escaparHTML(nome)}</strong>
               <span>Lendo “${escaparHTML(cartao.titulo)}”${cartao.autor ? ` — ${escaparHTML(cartao.autor)}` : ''}</span>
+              ${edicao ? `<span>Edição: ${escaparHTML(edicao)} · ${total} páginas</span>` : ''}
               <span>${paginas} ${paginas === 1 ? 'página registrada' : 'páginas registradas'}${total ? ` de ${total} (${percentual}%)` : ''}</span>
               ${percentual !== null ? `<div class="progresso-container"><div class="progresso-barra" style="width:${percentual}%"></div></div>` : ''}
             </div>
@@ -928,11 +989,11 @@ function renderizarBlocoComentarios(encontroId) {
   `;
 }
 
-function renderizarProgressoGrupo(atual) {
+function renderizarProgressoGrupo() {
   const metricas = estadoApp.metricasGrupo;
   if (
     !metricas
-    || !Object.prototype.hasOwnProperty.call(metricas, 'participantes_com_progresso')
+    || !Object.prototype.hasOwnProperty.call(metricas, 'participantes_com_edicao')
     || !Object.prototype.hasOwnProperty.call(metricas, 'progresso_medio_percentual')
     || !Object.prototype.hasOwnProperty.call(metricas, 'paginas_medias_por_membro')
   ) {
@@ -940,22 +1001,13 @@ function renderizarProgressoGrupo(atual) {
   }
 
   const totalPaginasGrupo = Math.max(0, Number(metricas.total_paginas) || 0);
-  const participantes = Math.max(0, Number(metricas.participantes_com_progresso) || 0);
-  const totalPaginasLivro = Math.max(0, Number(atual.paginas_totais) || 0);
+  const participantes = Math.max(0, Number(metricas.participantes_com_edicao) || 0);
+  const participantesComProgresso = Math.max(0, Number(metricas.participantes_com_progresso) || 0);
 
   if (participantes === 0) {
-    const orientacaoPaginas = totalPaginasLivro === 0
-      ? ' Informe o total de páginas do livro para calcular o percentual.'
-      : '';
     return `
-      <small>O grupo ainda não registrou páginas lidas neste livro.${orientacaoPaginas}</small>
-      ${totalPaginasLivro > 0 ? '<div class="progresso-container"><div class="progresso-barra" style="width:0%"></div></div>' : ''}
+      <small>Nenhum participante informou a edição do exemplar ainda; o progresso coletivo aparecerá quando isso for cadastrado.</small>
     `;
-  }
-
-  if (totalPaginasLivro === 0) {
-    const textoParticipantes = participantes === 1 ? '1 participante' : `${participantes} participantes`;
-    return `<small>O grupo registrou ${totalPaginasGrupo} páginas de ${textoParticipantes}. Informe o total de páginas do livro para calcular o percentual.</small>`;
   }
 
   const percentual = Math.min(100, Math.max(0, Number(metricas.progresso_medio_percentual) || 0));
@@ -964,8 +1016,8 @@ function renderizarProgressoGrupo(atual) {
   const paginasMediasFormatadas = paginasMedias.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
   return `
-    <small><strong>Progresso médio do grupo: ${percentualFormatado}%</strong></small>
-    <small>${paginasMediasFormatadas} de ${totalPaginasLivro} páginas por membro com registros; ${participantes} ${participantes === 1 ? 'participante' : 'participantes'} e ${totalPaginasGrupo} páginas registradas no total.</small>
+    <small><strong>Progresso médio do grupo, ajustado por edição: ${percentualFormatado}%</strong></small>
+    <small>${participantes} ${participantes === 1 ? 'participante informou' : 'participantes informaram'} a edição; ${participantesComProgresso} com páginas registradas. Média de ${paginasMediasFormatadas} páginas lidas por participante, limitada ao total de cada edição; ${totalPaginasGrupo} páginas registradas no grupo.</small>
     <div class="progresso-container"><div class="progresso-barra" style="width:${percentual}%"></div></div>
   `;
 }
@@ -988,7 +1040,7 @@ function renderizarTela() {
           <h3 style="margin:6px 0 4px 0;">${escaparHTML(atual.titulo)} — <small>${escaparHTML(atual.autor)}</small></h3>
           <p style="margin:4px 0;">📅 <strong>Data do Encontro:</strong> ${escaparHTML(formatarDataBR(atual.data_encontro))} ${atual.horario_local ? `(${escaparHTML(atual.horario_local)})` : ''}</p>
           ${atual.meta_texto ? `<p style="margin:4px 0;"><strong>🎯 Meta Atual:</strong> ${escaparHTML(atual.meta_texto)}</p>` : ''}
-          ${renderizarProgressoGrupo(atual)}
+          ${renderizarProgressoGrupo()}
           <a class="btn-agenda" href="${gerarLinkGoogleAgenda(atual)}" target="_blank" rel="noopener noreferrer">📅 Salvar no Google Agenda</a>
         </div>
       </div>

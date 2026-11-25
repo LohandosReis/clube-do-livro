@@ -186,6 +186,24 @@ create table if not exists public.progresso_leitura (
     check (paginas_lidas >= 0)
 );
 
+create table if not exists public.edicoes_leitura (
+  usuario_id uuid not null references auth.users(id) on delete cascade,
+  encontro_id bigint not null references public.encontros(id) on delete cascade,
+  edicao text not null,
+  paginas_totais integer not null,
+  atualizado_em timestamptz not null default now(),
+  primary key (usuario_id, encontro_id),
+  constraint edicoes_leitura_dados_validos
+    check (char_length(btrim(edicao)) between 1 and 120 and paginas_totais between 1 and 100000)
+);
+
+insert into public.edicoes_leitura (usuario_id, encontro_id, edicao, paginas_totais)
+select distinct p.usuario_id, p.encontro_id, 'Edição não informada', e.paginas_totais
+from public.progresso_leitura p
+join public.encontros e on e.id = p.encontro_id
+where e.paginas_totais between 1 and 100000
+on conflict (usuario_id, encontro_id) do nothing;
+
 create table if not exists public.progresso_leitura_compartilhado (
   id_publico uuid not null default gen_random_uuid(),
   usuario_id uuid not null references auth.users(id) on delete cascade,
@@ -251,6 +269,7 @@ alter table public.respostas_comentarios_livro enable row level security;
 alter table public.indicacoes_livro enable row level security;
 alter table public.votos_indicacao enable row level security;
 alter table public.progresso_leitura enable row level security;
+alter table public.edicoes_leitura enable row level security;
 alter table public.progresso_leitura_compartilhado enable row level security;
 alter table public.curtidas_progresso_compartilhado enable row level security;
 alter table public.comentarios_progresso_compartilhado enable row level security;
@@ -923,6 +942,15 @@ grant select, insert, update, delete
   on table public.progresso_leitura
   to authenticated;
 
+drop policy if exists "edicoes_leitura_proprias" on public.edicoes_leitura;
+create policy "edicoes_leitura_proprias" on public.edicoes_leitura
+  for all using (usuario_id = auth.uid())
+  with check (usuario_id = auth.uid());
+
+grant select, insert, update, delete
+  on table public.edicoes_leitura
+  to authenticated;
+
 drop policy if exists "progresso_compartilhado_proprio" on public.progresso_leitura_compartilhado;
 create policy "progresso_compartilhado_proprio" on public.progresso_leitura_compartilhado
   for all using (usuario_id = auth.uid())
@@ -1066,9 +1094,11 @@ begin
       'paginas_semana', 0,
       'paginas_mes', 0,
       'leitores_ativos', 0,
+      'participantes_com_edicao', 0,
       'participantes_com_progresso', 0,
       'paginas_medias_por_membro', 0,
       'progresso_medio_percentual', 0,
+      'progresso_por_edicao', '[]'::jsonb,
       'atividade_anonima', '[]'::jsonb
     );
   end if;
@@ -1107,33 +1137,64 @@ begin
     and p.data_leitura <= current_date;
 
   select jsonb_build_object(
-    'participantes_com_progresso', count(pessoa.usuario_id),
+    'participantes_com_edicao', count(edicao.usuario_id),
+    'participantes_com_progresso', count(edicao.usuario_id)
+      filter (where leitura.total_paginas > 0),
     'paginas_medias_por_membro', coalesce(
-      round(avg(least(pessoa.paginas, livro.paginas_totais)), 1),
+      round(avg(least(coalesce(leitura.total_paginas, 0), edicao.paginas_totais)), 1),
       0
     ),
     'progresso_medio_percentual', coalesce(
       round(avg(
-        100.0 * least(pessoa.paginas, livro.paginas_totais)
-          / nullif(livro.paginas_totais, 0)
+        100.0 * least(coalesce(leitura.total_paginas, 0), edicao.paginas_totais)
+          / nullif(edicao.paginas_totais, 0)
       ), 1),
       0
-    )
+    ),
+    'progresso_por_edicao', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'edicao', grupo.edicao,
+          'paginas_totais', grupo.paginas_totais,
+          'participantes', grupo.participantes,
+          'total_paginas', grupo.total_paginas,
+          'progresso_medio_percentual', grupo.progresso_medio_percentual
+        )
+        order by grupo.edicao, grupo.paginas_totais
+      )
+      from (
+        select
+          min(btrim(ed.edicao)) as edicao,
+          ed.paginas_totais,
+          count(*) as participantes,
+          sum(coalesce(leitura_edicao.total_paginas, 0)) as total_paginas,
+          round(avg(
+            100.0 * least(coalesce(leitura_edicao.total_paginas, 0), ed.paginas_totais)
+              / ed.paginas_totais
+          ), 1) as progresso_medio_percentual
+        from public.edicoes_leitura ed
+        left join lateral (
+          select coalesce(sum(p.paginas_lidas), 0)::numeric as total_paginas
+          from public.progresso_leitura p
+          where p.usuario_id = ed.usuario_id
+            and p.encontro_id = ed.encontro_id
+            and p.data_leitura <= current_date
+        ) leitura_edicao on true
+        where ed.encontro_id = p_encontro_id
+        group by lower(btrim(ed.edicao)), ed.paginas_totais
+      ) grupo
+    ), '[]'::jsonb)
   )
   into progresso_coletivo
-  from (
-    select p.usuario_id, sum(p.paginas_lidas)::numeric as paginas
+  from public.edicoes_leitura edicao
+  left join lateral (
+    select coalesce(sum(p.paginas_lidas), 0)::numeric as total_paginas
     from public.progresso_leitura p
-    where p.encontro_id = p_encontro_id
+    where p.usuario_id = edicao.usuario_id
+      and p.encontro_id = edicao.encontro_id
       and p.data_leitura <= current_date
-    group by p.usuario_id
-    having sum(p.paginas_lidas) > 0
-  ) pessoa
-  cross join (
-    select e.paginas_totais
-    from public.encontros e
-    where e.id = p_encontro_id
-  ) livro;
+  ) leitura on true
+  where edicao.encontro_id = p_encontro_id;
 
   return resultado || progresso_coletivo;
 end;
@@ -1168,7 +1229,8 @@ as $$
           else ''
         end,
         'paginas_lidas', progresso.total_paginas,
-        'paginas_totais', encontro.paginas_totais,
+        'edicao', coalesce(edicao.edicao, ''),
+        'paginas_totais', coalesce(edicao.paginas_totais, encontro.paginas_totais),
         'titulo', encontro.titulo,
         'autor', encontro.autor,
         'capa', encontro.capa
@@ -1184,6 +1246,9 @@ as $$
     on perfil.id = compartilhado.usuario_id
   left join public.perfis_clube_detalhes detalhes
     on detalhes.usuario_id = compartilhado.usuario_id
+  left join public.edicoes_leitura edicao
+    on edicao.usuario_id = compartilhado.usuario_id
+    and edicao.encontro_id = compartilhado.encontro_id
   join lateral (
     select coalesce(sum(p.paginas_lidas), 0) as total_paginas
     from public.progresso_leitura p
