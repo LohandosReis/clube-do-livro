@@ -483,7 +483,7 @@ function renderizarIndicacoes() {
         <div class="indicacao-acoes">
           ${botaoVoto}
           ${podeEditar ? `<button type="button" class="btn-secundario btn-mini" data-action="editar-indicacao" data-id="${ind.id}">Editar</button>` : ''}
-          ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-indicacao" data-id="${ind.id}">🗑️</button>` : ''}
+          ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-indicacao" data-id="${ind.id}" aria-label="Apagar indicação de ${escaparHTML(ind.titulo)}" title="Apagar indicação">Excluir</button>` : ''}
         </div>
         ${gerenciamentoVotos}
       </div>

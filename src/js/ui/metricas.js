@@ -497,7 +497,7 @@ function renderizarInteracoesProgresso(cartao) {
           <strong>${escaparHTML(nome)}</strong>
           <small>${escaparHTML(formatarDataHoraBR(comentario.criado_em))}</small>
           ${estadoApp.usuario && estadoApp.ehAdminMaster ? `<button type="button" class="btn-secundario btn-mini" data-action="editar-comentario-progresso" data-id="${comentario.id}">Editar</button>` : ''}
-          ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-comentario-progresso" data-id="${comentario.id}">×</button>` : ''}
+          ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-comentario-progresso" data-id="${comentario.id}" aria-label="Apagar comentário de progresso" title="Apagar comentário">Excluir</button>` : ''}
         </div>
         <p>${escaparHTML(comentario.texto)}</p>
       </div>

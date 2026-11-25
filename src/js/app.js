@@ -144,9 +144,14 @@ window.excluirModulo = async (id) => {
   const podeExcluir = estadoApp.ehAdminMaster || (ehIndividual && item.autor_postagem_id === estadoApp.usuario.id);
   if (!podeExcluir) return alert('Você não tem permissão para excluir este item.');
 
-  if (!confirm(`Tem certeza que deseja excluir o registro de "${item.titulo}"?`)) return;
+  if (!confirm(`Excluir a publicação "${item.titulo}"? Conteúdo público associado também pode ser removido; dados pessoais de leitura são preservados.`)) return;
   const { error } = await supabaseClient.from('encontros').delete().eq('id', id);
-  if (error) return alert('Erro ao excluir: ' + error.message);
+  if (error) {
+    if (error.code === '23503') {
+      return alert('Este livro não pode ser excluído porque há progresso ou edição pessoal vinculados. Os registros e métricas foram preservados.');
+    }
+    return alert('Erro ao excluir: ' + error.message);
+  }
   carregarEncontros();
 };
 

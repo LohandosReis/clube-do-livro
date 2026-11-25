@@ -177,7 +177,7 @@ create table if not exists public.votos_indicacao (
 
 create table if not exists public.progresso_leitura (
   usuario_id uuid not null references auth.users(id) on delete cascade,
-  encontro_id bigint not null references public.encontros(id) on delete cascade,
+  encontro_id bigint not null references public.encontros(id) on delete restrict,
   data_leitura date not null,
   paginas_lidas integer not null default 0,
   atualizado_em timestamptz not null default now(),
@@ -188,7 +188,7 @@ create table if not exists public.progresso_leitura (
 
 create table if not exists public.edicoes_leitura (
   usuario_id uuid not null references auth.users(id) on delete cascade,
-  encontro_id bigint not null references public.encontros(id) on delete cascade,
+  encontro_id bigint not null references public.encontros(id) on delete restrict,
   edicao text not null,
   paginas_totais integer not null,
   atualizado_em timestamptz not null default now(),
@@ -196,6 +196,61 @@ create table if not exists public.edicoes_leitura (
   constraint edicoes_leitura_dados_validos
     check (char_length(btrim(edicao)) between 1 and 120 and paginas_totais between 1 and 100000)
 );
+
+do $$
+declare
+  constraint_name text;
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.progresso_leitura'::regclass
+      and confrelid = 'public.encontros'::regclass
+      and contype = 'f'
+      and confdeltype = 'r'
+  ) then
+    for constraint_name in
+      select conname
+      from pg_constraint
+      where conrelid = 'public.progresso_leitura'::regclass
+        and confrelid = 'public.encontros'::regclass
+        and contype = 'f'
+    loop
+      execute format('alter table public.progresso_leitura drop constraint %I', constraint_name);
+    end loop;
+
+    alter table public.progresso_leitura
+      add constraint progresso_leitura_encontro_id_fkey
+      foreign key (encontro_id)
+      references public.encontros(id)
+      on delete restrict;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.edicoes_leitura'::regclass
+      and confrelid = 'public.encontros'::regclass
+      and contype = 'f'
+      and confdeltype = 'r'
+  ) then
+    for constraint_name in
+      select conname
+      from pg_constraint
+      where conrelid = 'public.edicoes_leitura'::regclass
+        and confrelid = 'public.encontros'::regclass
+        and contype = 'f'
+    loop
+      execute format('alter table public.edicoes_leitura drop constraint %I', constraint_name);
+    end loop;
+
+    alter table public.edicoes_leitura
+      add constraint edicoes_leitura_encontro_id_fkey
+      foreign key (encontro_id)
+      references public.encontros(id)
+      on delete restrict;
+  end if;
+end $$;
 
 insert into public.edicoes_leitura (usuario_id, encontro_id, edicao, paginas_totais)
 select distinct p.usuario_id, p.encontro_id, 'Edição não informada', e.paginas_totais

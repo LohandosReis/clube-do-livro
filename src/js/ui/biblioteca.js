@@ -43,7 +43,7 @@ function renderizarBlocoComentarios(encontroId) {
                 <strong>${escaparHTML(nomeResposta)}</strong>
                 <small>${escaparHTML(formatarDataHoraBR(resposta.criado_em))}</small>
                 ${ehAdmin ? `<button type="button" class="btn-secundario btn-mini" data-action="editar-resposta-comentario" data-id="${resposta.id}">Editar</button>` : ''}
-                ${podeApagarResposta ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-resposta-comentario" data-id="${resposta.id}">×</button>` : ''}
+                ${podeApagarResposta ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-resposta-comentario" data-id="${resposta.id}" aria-label="Apagar resposta" title="Apagar resposta">Excluir</button>` : ''}
               </div>
               <p>${escaparHTML(resposta.texto)}</p>
             </div>
@@ -65,7 +65,7 @@ function renderizarBlocoComentarios(encontroId) {
                 <strong>${escaparHTML(nome)}</strong>
                 <small>${escaparHTML(formatarDataHoraBR(c.criado_em))}</small>
                 ${ehAdmin ? `<button type="button" class="btn-secundario btn-mini" data-action="editar-comentario" data-id="${c.id}">Editar</button>` : ''}
-                ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-comentario" data-id="${c.id}">×</button>` : ''}
+                ${podeApagar ? `<button type="button" class="btn-perigo btn-mini" data-action="apagar-comentario" data-id="${c.id}" aria-label="Apagar comentário" title="Apagar comentário">Excluir</button>` : ''}
               </div>
               <p class="comentario-texto">${escaparHTML(c.texto)}</p>
               <div class="interacao-comentario">
@@ -232,7 +232,7 @@ function renderizarTela() {
     const botoesAdmin = podeGerenciarModulo
       ? `<div style="display:flex; gap:6px;">
            <button type="button" data-action="editar-modulo" data-id="${item.id}" class="btn-secundario">✏️ Editar</button>
-           <button type="button" data-action="excluir-modulo" data-id="${item.id}" class="btn-perigo">🗑️</button>
+           <button type="button" data-action="excluir-modulo" data-id="${item.id}" class="btn-perigo" aria-label="Excluir publicação de ${escaparHTML(item.titulo)}" title="Excluir publicação">🗑️ Excluir</button>
          </div>`
       : '';
 

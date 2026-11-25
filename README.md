@@ -122,9 +122,10 @@ O tema editorial usa tons de papel e marfim como base, verde-oliva escuro para n
 - Ordenação das indicações pela quantidade de votos.
 - Exclusão do próprio comentário ou indicação.
 - Visitantes sem login podem apenas visualizar conteúdo já publicado; formulários, votação, avaliação e comentários só aparecem para membros autenticados.
-- O Admin Master pode editar os nomes e fotos públicos dos perfis e moderar comentários, respostas, indicações, avaliações, votos e cartões compartilhados.
-- A moderação não permite alterar dados privados de perfil, metas, métricas pessoais nem excluir contas de autenticação.
+- O Admin Master pode moderar publicações públicas de membros — resenhas, comentários, respostas, indicações, avaliações, votos e cartões compartilhados — pelas respectivas seções do site. Também pode editar nomes e fotos públicos dos perfis.
+- A moderação não apaga dados pessoais de perfil, metas, métricas pessoais nem contas de autenticação.
 - O Admin Master também pode remover cartões de progresso publicados por membros; curtidas e comentários do cartão são removidos em cascata, sem apagar registros ou métricas de leitura.
+- Excluir uma publicação de livro não apaga registros privados: a exclusão é bloqueada pelo banco enquanto houver progresso ou edição pessoal vinculados.
 - Novos comentários, avaliações e indicações feitos pelo Admin Master ficam associados à própria conta; o sistema não permite publicar em nome de outro membro.
 - Metas, registros e edições pessoais, campos privados de perfil e contas de autenticação não são gerenciados pelo painel administrativo.
 
