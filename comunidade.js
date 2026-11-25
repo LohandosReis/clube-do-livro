@@ -1008,6 +1008,34 @@ window.salvarPreferenciaCompartilhamento = async () => {
   alert(publicar ? 'Seu cartão agora aparece na seção pública do site.' : 'Seu cartão foi removido da seção pública.');
 };
 
+window.removerCartaoProgressoAdmin = async (publicacaoId) => {
+  if (!estadoApp.usuario || !estadoApp.ehAdminMaster) {
+    return alert('Apenas o Admin Master pode remover o cartão de outra pessoa.');
+  }
+
+  const cartao = estadoApp.cartoesProgressoPublicos.find(
+    item => item.id_publico === publicacaoId
+  );
+  if (!cartao || cartao.eh_meu) {
+    return alert('Este cartão não está disponível para moderação.');
+  }
+
+  if (!confirm('Remover este cartão da seção pública? As curtidas e os comentários ligados a ele também serão removidos. Os registros de leitura e as métricas pessoais da pessoa serão preservados.')) {
+    return;
+  }
+
+  const { error, count } = await supabaseClient
+    .from('progresso_leitura_compartilhado')
+    .delete({ count: 'exact' })
+    .eq('id_publico', publicacaoId);
+
+  if (error) return alert('Não foi possível remover o cartão: ' + error.message);
+  if (count === 0) return alert('O cartão não foi removido. Atualize as métricas e tente novamente.');
+
+  await carregarMetricasGrupo();
+  alert('Cartão removido. Os registros e as métricas pessoais foram preservados.');
+};
+
 function obterDadosCartaoProgresso() {
   const atual = estadoApp.encontros.find(
     item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'

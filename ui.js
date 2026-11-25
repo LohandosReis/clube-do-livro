@@ -136,7 +136,7 @@ function renderizarUsuariosAdmin() {
         </div>
         <div class="acoes-usuario-admin">
           ${isMasterItem
-            ? '<small>Permissão total</small>'
+            ? '<small>Administra conteúdo público</small>'
             : ''}
              <button
                type="button"
@@ -886,7 +886,11 @@ function renderizarMetricasGrupo() {
               ${percentual !== null ? `<div class="progresso-container"><div class="progresso-barra" style="width:${percentual}%"></div></div>` : ''}
             </div>
             ${renderizarInteracoesProgresso(cartao)}
-            ${cartao.eh_meu ? '<button type="button" class="btn-perigo btn-mini cartao-publico-retirar" data-action="retirar-publicacao-progresso">Retirar meu cartão do site</button>' : ''}
+            ${cartao.eh_meu
+              ? `<button type="button" class="btn-perigo btn-mini cartao-publico-retirar" data-action="retirar-publicacao-progresso">Retirar meu cartão do site</button>`
+              : estadoApp.ehAdminMaster
+                ? `<button type="button" class="btn-perigo btn-mini cartao-publico-retirar" data-action="remover-cartao-progresso-admin" data-publicacao-id="${escaparHTML(cartao.id_publico)}" title="Remove o cartão e suas interações sem apagar os registros de leitura">Remover cartão (Admin Master)</button>`
+                : ''}
           </article>
         `;
       }).join('')}

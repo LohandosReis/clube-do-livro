@@ -933,6 +933,15 @@ create policy "votos_admin_excluir" on public.votos_indicacao
 
 grant delete on table public.votos_indicacao to authenticated;
 
+grant select
+  on table public.encontros, public.guia_clube, public.avaliacoes_livro,
+    public.comentarios_livro, public.indicacoes_livro, public.votos_indicacao
+  to anon, authenticated;
+grant insert, update, delete
+  on table public.encontros, public.guia_clube, public.avaliacoes_livro,
+    public.comentarios_livro, public.indicacoes_livro, public.votos_indicacao
+  to authenticated;
+
 drop policy if exists "progresso_leitura_proprio" on public.progresso_leitura;
 create policy "progresso_leitura_proprio" on public.progresso_leitura
   for all using (usuario_id = auth.uid())
@@ -959,6 +968,10 @@ create policy "progresso_compartilhado_proprio" on public.progresso_leitura_comp
 grant select, insert, update, delete
   on table public.progresso_leitura_compartilhado
   to authenticated;
+
+drop policy if exists "progresso_compartilhado_admin_excluir" on public.progresso_leitura_compartilhado;
+create policy "progresso_compartilhado_admin_excluir" on public.progresso_leitura_compartilhado
+  for delete using (public.clube_e_admin());
 
 create or replace function public.clube_progresso_compartilhado_visivel(p_id_publico uuid)
 returns boolean

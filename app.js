@@ -573,6 +573,9 @@ function registrarEventos() {
         document.getElementById('progresso-publicado-site').checked = false;
         salvarPreferenciaCompartilhamento();
         break;
+      case 'remover-cartao-progresso-admin':
+        removerCartaoProgressoAdmin(acao.dataset.publicacaoId);
+        break;
       case 'editar-comentario-progresso':
         editarComentarioProgressoCompartilhado(Number(id));
         break;

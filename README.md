@@ -104,6 +104,7 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 - Edição do título e conteúdo do guia de discussão.
 - Listagem de membros, edição de nome/foto e alteração da permissão de publicar resenhas individuais.
 - Edição e remoção de qualquer livro, resenha, comentário, indicação ou avaliação pública; também pode remover votos.
+- O Admin Master pode retirar cartões públicos de progresso de membros, sem acesso para editar ou excluir os registros privados que originaram as métricas.
 - Confirmação explícita antes de salvar edições ou excluir conteúdo.
 
 ### Comunidade
@@ -119,7 +120,11 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 - Ordenação das indicações pela quantidade de votos.
 - Exclusão do próprio comentário ou indicação.
 - Visitantes sem login podem apenas visualizar conteúdo já publicado; formulários, votação, avaliação e comentários só aparecem para membros autenticados.
-- O Admin Master pode editar ou remover perfis públicos, comentários, indicações e avaliações de qualquer membro, além de remover votos.
+- O Admin Master pode editar os nomes e fotos públicos dos perfis e moderar comentários, respostas, indicações, avaliações, votos e cartões compartilhados.
+- A moderação não permite alterar dados privados de perfil, metas, métricas pessoais nem excluir contas de autenticação.
+- O Admin Master também pode remover cartões de progresso publicados por membros; curtidas e comentários do cartão são removidos em cascata, sem apagar registros ou métricas de leitura.
+- Novos comentários, avaliações e indicações feitos pelo Admin Master ficam associados à própria conta; o sistema não permite publicar em nome de outro membro.
+- Metas, registros e edições pessoais, campos privados de perfil e contas de autenticação não são gerenciados pelo painel administrativo.
 
 ### Perfil e diretório de membros
 
@@ -587,7 +592,8 @@ Leituras do clube, comentários, indicações e avaliações publicadas podem se
 - o Admin Master não tem leitura direta desses registros;
 - `clube_metricas_grupo()` retorna somente métricas agregadas, sem IDs ou linhas individuais, agrupadas pela edição e pela quantidade de páginas;
 - `clube_cartoes_progresso_publicos()` retorna somente cartões publicados explicitamente;
-- o cartão só é mostrado publicamente após o usuário habilitar a publicação.
+- o cartão só é mostrado publicamente após o usuário habilitar a publicação;
+- o Admin Master pode retirar qualquer cartão publicado, mas não recebe acesso aos registros privados de leitura; a remoção apaga somente a publicação e suas interações associadas.
 
 ### Avaliações
 
