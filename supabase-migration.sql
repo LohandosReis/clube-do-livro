@@ -1113,11 +1113,10 @@ begin
       0
     ),
     'progresso_medio_percentual', coalesce(
-      round(
-        100.0 * avg(least(pessoa.paginas, livro.paginas_totais))
-          / nullif(livro.paginas_totais, 0),
-        1
-      ),
+      round(avg(
+        100.0 * least(pessoa.paginas, livro.paginas_totais)
+          / nullif(livro.paginas_totais, 0)
+      ), 1),
       0
     )
   )
