@@ -71,6 +71,9 @@ function traduzirErroAutenticacao(error) {
   if (mensagem.includes('rate limit')) {
     return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.';
   }
+  if (mensagem.includes('permission denied for table perfis_clube')) {
+    return 'O banco recusou salvar o perfil. Confirme se a migração atualizada foi executada no Supabase e tente entrar novamente.';
+  }
   return error?.message
     ? `Não foi possível concluir a solicitação: ${error.message}`
     : 'Não foi possível concluir a solicitação. Tente novamente.';
@@ -209,8 +212,7 @@ async function garantirPerfilUsuario(user, nomeInformado = '', fotoUrl = '') {
   const fotoFinal = fotoUrl || existente?.foto_path || perfilAtual?.foto_url || '';
   const isMaster = (user.email || '').toLowerCase() === EMAIL_ADMIN_MASTER.toLowerCase();
 
-  const payload = {
-    id: user.id,
+  const camposPerfil = {
     nome: nomeFinal,
     foto_url: fotoFinal,
     pode_publicar_resenha: isMaster
@@ -218,11 +220,19 @@ async function garantirPerfilUsuario(user, nomeInformado = '', fotoUrl = '') {
       : Boolean(perfilAtual?.pode_publicar_resenha ?? existente?.pode_publicar_resenha)
   };
 
-  const { data, error } = await supabaseClient
-    .from('perfis_clube')
-    .upsert(payload, { onConflict: 'id' })
-    .select('id, nome, foto_url, pode_publicar_resenha, criado_em')
-    .single();
+  const payload = { id: user.id, ...camposPerfil };
+  const colunasRetorno = 'id, nome, foto_url, pode_publicar_resenha, criado_em';
+  const salvarPerfil = (inserir) => {
+    const consulta = inserir
+      ? supabaseClient.from('perfis_clube').insert(payload)
+      : supabaseClient.from('perfis_clube').update(camposPerfil).eq('id', user.id);
+    return consulta.select(colunasRetorno).single();
+  };
+
+  let { data, error } = await salvarPerfil(!perfilAtual);
+  if (error?.code === '23505' && !perfilAtual) {
+    ({ data, error } = await salvarPerfil(false));
+  }
 
   if (error) throw error;
   if (!data) throw new Error('O perfil não foi retornado após salvar.');
@@ -625,7 +635,12 @@ async function verificarSessao() {
 
   await carregarPerfis();
   if (estadoApp.usuario && !estadoApp.perfilUsuario) {
-    await garantirPerfilUsuario(estadoApp.usuario);
+    try {
+      await garantirPerfilUsuario(estadoApp.usuario);
+    } catch (error) {
+      console.error('Erro ao criar ou carregar o perfil do membro:', error);
+      mostrarMensagemConta(traduzirErroAutenticacao(error), 'erro');
+    }
   }
   await carregarProgressoLeitura();
 
