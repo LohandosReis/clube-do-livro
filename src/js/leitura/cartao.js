@@ -151,7 +151,7 @@ window.gerarCartaoProgresso = async () => {
 
   ctx.fillStyle = '#5d6672';
   ctx.font = '24px Arial, sans-serif';
-  ctx.fillText('Nosso Clube do Livro', 72, 1270);
+  ctx.fillText('Clube do Livro', 72, 1270);
 
   const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
   if (!blob) return alert('Não foi possível gerar a imagem. Tente novamente.');
