@@ -309,7 +309,7 @@ async function carregarMeuPerfil() {
 
   let perfilAssinado;
   try {
-    [perfilAssinado] = await assinarFotosDePerfis([perfil]);
+    [perfilAssinado] = await assinarFotosDePerfis([perfil], { exigirAssinatura: true });
   } catch (errorFoto) {
     mostrarMensagemPerfil(`Não foi possível carregar a foto do perfil: ${errorFoto.message}`, 'erro');
     return false;
@@ -469,7 +469,8 @@ async function salvarMeuPerfil(event) {
     await carregarComunidade();
     await carregarMetricasGrupo();
     if (!await carregarMeuPerfil()) {
-      throw new Error('Não foi possível recarregar os dados do perfil.');
+      const mensagemPerfil = document.getElementById('perfil-mensagem').textContent;
+      throw new Error(mensagemPerfil || 'Não foi possível recarregar os dados do perfil.');
     }
     await buscarPerfis();
     atualizarInterfaceSessao();

@@ -182,7 +182,7 @@ async function fazerUploadFotoPerfilComprimida(file, usuarioId) {
   return caminho;
 }
 
-async function assinarFotosDePerfis(perfis) {
+async function assinarFotosDePerfis(perfis, { exigirAssinatura = false } = {}) {
   const registros = perfis.map(perfil => ({
     ...perfil,
     foto_path: perfil.foto_url || ''
@@ -199,13 +199,20 @@ async function assinarFotosDePerfis(perfis) {
     .createSignedUrls(caminhos, 3600);
   if (error) throw error;
 
-  const urls = new Map((data?.signedUrls || []).map(item => [item.path, item.signedUrl]));
-  return registros.map(perfil => ({
-    ...perfil,
-    foto_url: /^https?:\/\//i.test(perfil.foto_path)
-      ? perfil.foto_path
-      : (urls.get(perfil.foto_path) || '')
-  }));
+  const resultados = new Map((data?.signedUrls || []).map(item => [item.path, item]));
+  return registros.map(perfil => {
+    if (/^https?:\/\//i.test(perfil.foto_path)) {
+      return { ...perfil, foto_url: perfil.foto_path };
+    }
+
+    const resultado = resultados.get(perfil.foto_path);
+    if (exigirAssinatura && perfil.foto_path && (!resultado || resultado.error || !resultado.signedUrl)) {
+      const detalhe = resultado?.error?.message || 'O armazenamento não retornou um endereço para a foto.';
+      throw new Error(`Não foi possível gerar um endereço seguro para a foto: ${detalhe}`);
+    }
+
+    return { ...perfil, foto_url: resultado?.signedUrl || '' };
+  });
 }
 
 async function removerFotoPerfilAntiga(fotoPath) {
