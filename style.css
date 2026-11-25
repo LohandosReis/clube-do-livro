@@ -85,8 +85,19 @@ header small {
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 999px;
+  color: inherit;
+  text-align: left;
   font-size: 0.84rem;
   font-weight: 600;
+}
+
+.badge-usuario:hover {
+  background: rgba(255, 255, 255, 0.23);
+}
+
+.badge-usuario:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
 }
 
 .badge-usuario img {

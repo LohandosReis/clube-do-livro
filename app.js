@@ -527,6 +527,9 @@ function registrarEventos() {
 
     const id = acao.dataset.id;
     switch (acao.dataset.action) {
+      case 'abrir-meu-perfil':
+        abrirPainelPerfil();
+        break;
       case 'editar-modulo':
         prepararEdicao(Number(id));
         break;

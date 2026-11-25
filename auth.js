@@ -564,8 +564,10 @@ function atualizarInterfaceSessao() {
     const nomeExibido = estadoApp.perfilUsuario?.nome || estadoApp.usuario.email;
     const fotoExibida = estadoApp.perfilUsuario?.foto_url || avatarPadrao(nomeExibido);
     badgeUsuario.classList.remove('oculto');
+    badgeUsuario.setAttribute('aria-label', `Abrir perfil de ${nomeExibido}`);
+    badgeUsuario.title = 'Abrir meu perfil';
     badgeUsuario.innerHTML = `
-      <img src="${escaparHTML(fotoExibida)}" alt="${escaparHTML(nomeExibido)}">
+      <img src="${escaparHTML(fotoExibida)}" alt="">
       <span>${escaparHTML(nomeExibido)}${estadoApp.ehAdminMaster ? ' • Admin Master' : ''}</span>
     `;
     const imagemBadge = badgeUsuario.querySelector('img');

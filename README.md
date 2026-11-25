@@ -122,6 +122,7 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 
 ### Perfil e diretório de membros
 
+- O botão com a foto e o nome do usuário no cabeçalho abre diretamente a página completa do próprio perfil.
 - Cada membro pode editar o próprio nome ou apelido, foto, biografia, cidade/estado, gêneros, livros e autores favoritos, link pessoal e um campo personalizado.
 - Cada campo tem uma preferência independente: somente a própria pessoa, membros conectados ou todos os visitantes.
 - O diretório só funciona para membros conectados e lista apenas perfis que ativaram explicitamente a opção de aparecer na busca.
