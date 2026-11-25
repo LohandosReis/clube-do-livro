@@ -846,7 +846,15 @@ async function redefinirSenha(password, confirmarSenha, botao) {
 }
 
 async function sairDaConta() {
-  await supabaseClient.auth.signOut();
+  try {
+    const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
+    if (error) throw error;
+  } catch (error) {
+    console.error('Não foi possível encerrar a sessão atual:', error);
+    alert(`Não foi possível sair da conta: ${traduzirErroAutenticacao(error)}`);
+    return;
+  }
+
   estadoApp.sessao = null;
   estadoApp.usuario = null;
   estadoApp.perfilUsuario = null;
