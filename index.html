@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clube do Livro - Acompanhamento</title>
+  <title>Clube do Livro | Leituras e comunidade</title>
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,19 +27,36 @@
   <header>
     <div>
       <h1>📚 Nosso Clube do Livro</h1>
-      <small>Acompanhamento de leituras físicas, metas, resenhas e encontros</small>
+      <small>Um espaço organizado para ler, acompanhar e compartilhar</small>
     </div>
     <div class="header-acoes">
       <div id="badge-usuario-logado" class="badge-usuario oculto"></div>
-      <button type="button" id="btn-abrir-conta" class="btn-secundario">Entrar / Cadastrar</button>
-      <button type="button" id="btn-abrir-perfil" class="btn-secundario oculto">Meu perfil e membros</button>
+      <button type="button" id="btn-abrir-conta" class="btn-secundario">Entrar</button>
       <button type="button" id="btn-sair" class="btn-perigo oculto">Sair</button>
     </div>
+    <nav id="navegacao-principal" class="navegacao-principal" aria-label="Navegação principal">
+      <button type="button" data-navegar="inicio" aria-current="page">Início</button>
+      <button type="button" data-navegar="metricas">Métricas</button>
+      <button type="button" data-navegar="livros">Biblioteca</button>
+      <button type="button" data-navegar="comunidade">Comunidade</button>
+      <button type="button" data-navegar="perfil" class="oculto" data-requer-login>Meu perfil</button>
+      <button type="button" data-navegar="membros" class="oculto" data-requer-login>Membros</button>
+      <button type="button" data-navegar="admin" class="oculto" data-requer-admin>Administração</button>
+    </nav>
   </header>
 
   <main>
+    <div class="pagina-cabecalho">
+      <button type="button" id="btn-voltar-pagina" class="btn-voltar oculto">← Voltar</button>
+      <div>
+        <p id="pagina-etiqueta" class="pagina-etiqueta">CLUBE DO LIVRO</p>
+        <h2 id="pagina-titulo">Início</h2>
+        <p id="pagina-descricao" class="texto-suave">Acompanhe a leitura atual e as novidades do clube.</p>
+      </div>
+    </div>
+
     <!-- PLACAR DE PERFORMANCE DO CLUBE -->
-    <section class="placar-grid">
+    <section class="placar-grid" data-pagina-app="inicio">
       <div class="stat-card">
         <span id="stat-livros" class="stat-numero">0</span>
         <span class="stat-label">Livros Concluídos</span>
@@ -55,11 +72,10 @@
     </section>
 
     <!-- LOGIN / CADASTRO DE USUÁRIO DO CLUBE -->
-    <section id="secao-conta-usuario" class="card oculto">
+    <section id="secao-conta-usuario" class="card oculto" data-pagina-app="conta">
       <div class="abas-conta">
         <button type="button" id="tab-user-login" class="btn-primario">🔑 Entrar na Conta</button>
         <button type="button" id="tab-user-cadastro" class="btn-secundario">✨ Criar Conta de Membro</button>
-        <button type="button" id="btn-fechar-conta" class="btn-secundario">Fechar</button>
       </div>
 
       <div id="conta-mensagem" class="mensagem-conta oculto" role="status" aria-live="polite"></div>
@@ -104,7 +120,9 @@
           </div>
           <small id="user-cad-confirma-feedback" class="feedback-campo" aria-live="polite"></small>
           <label for="user-cad-foto">Foto de perfil (opcional)</label>
-          <input type="file" id="user-cad-foto" accept="image/*">
+          <input type="file" id="user-cad-foto" accept="image/jpeg,image/png,image/webp" aria-describedby="user-cad-foto-feedback">
+          <img id="user-cad-foto-preview" class="perfil-foto-preview oculto" alt="Prévia da foto escolhida">
+          <small id="user-cad-foto-feedback" class="feedback-foto" role="status" aria-live="polite">JPG, PNG ou WebP, até 10 MB. A imagem será comprimida antes do envio.</small>
           <button type="submit" id="btn-user-cadastrar" class="btn-primario">Criar Conta</button>
         </form>
       </div>
@@ -136,13 +154,12 @@
       </div>
     </section>
 
-    <section id="secao-perfil-membros" class="card perfil-membros-box oculto">
+    <section id="secao-perfil-membros" class="card perfil-membros-box oculto" data-pagina-app="perfil">
       <div class="perfil-painel-cabecalho">
         <div>
-          <h2>Meu perfil e membros</h2>
+          <h2>Meu perfil</h2>
           <p>Complete seu perfil quando quiser. Cada informação fica privada até você escolher quem pode vê-la.</p>
         </div>
-        <button type="button" id="btn-fechar-perfil" class="btn-secundario">Fechar</button>
       </div>
       <div id="perfil-mensagem" class="mensagem-conta oculto" role="status" aria-live="polite"></div>
 
@@ -163,7 +180,8 @@
           <div>
             <label for="perfil-foto">Foto de perfil</label>
             <img id="perfil-foto-atual" class="perfil-foto-preview oculto" alt="Prévia da foto do perfil">
-            <input type="file" id="perfil-foto" accept="image/*">
+            <input type="file" id="perfil-foto" accept="image/jpeg,image/png,image/webp" aria-describedby="perfil-foto-feedback">
+            <small id="perfil-foto-feedback" class="feedback-foto" role="status" aria-live="polite">JPG, PNG ou WebP, até 10 MB. A imagem será comprimida antes do envio.</small>
             <label class="opcao-compartilhamento">
               <input type="checkbox" id="perfil-remover-foto">
               Remover minha foto atual
@@ -251,6 +269,16 @@
         <button type="submit" id="btn-salvar-perfil" class="btn-primario">Salvar meu perfil</button>
       </form>
 
+    </section>
+
+    <section id="secao-diretorio-perfis" class="card diretorio-perfis-pagina oculto" data-pagina-app="membros">
+      <div class="perfil-painel-cabecalho">
+        <div>
+          <h2>Membros do clube</h2>
+          <p>Encontre membros e veja somente as informações que escolheram compartilhar.</p>
+        </div>
+        <button type="button" class="btn-secundario" data-navegar="perfil">Meu perfil</button>
+      </div>
       <section class="diretorio-perfis">
         <h3>Encontrar membros</h3>
         <form id="form-buscar-perfis" class="linha-busca-perfis">
@@ -262,10 +290,10 @@
       </section>
     </section>
 
-    <section id="perfil-compartilhado" class="card perfil-compartilhado oculto" aria-live="polite"></section>
+    <section id="perfil-compartilhado" class="card perfil-compartilhado oculto" data-pagina-app="perfil-publico" aria-live="polite"></section>
 
     <!-- PAINEL DO ADMIN MASTER -->
-    <section id="painel-admin" class="card admin-box oculto">
+    <section id="painel-admin" class="card admin-box oculto" data-pagina-app="admin">
       <div class="abas-admin">
         <button type="button" id="tab-btn-livro" class="btn-primario">📖 Gerenciar Livros / Encontros</button>
         <button type="button" id="tab-btn-usuarios" class="btn-secundario">👥 Usuários e Permissões</button>
@@ -374,13 +402,13 @@
     </section>
 
     <!-- DESTAQUE: LEITURA ATUAL -->
-    <section id="destaque-atual" class="destaque-box">
+    <section id="destaque-atual" class="destaque-box" data-pagina-app="inicio">
       <h2>📖 Leitura Atual & Próximo Encontro</h2>
       <div id="conteudo-atual">Carregando...</div>
     </section>
 
     <!-- MÉTRICAS ANÔNIMAS DO GRUPO -->
-    <section id="metricas-grupo" class="card metricas-grupo-box">
+    <section id="metricas-grupo" class="card metricas-grupo-box" data-pagina-app="metricas">
       <h2>📚 Ritmo do Clube</h2>
       <p id="metricas-grupo-livro" class="texto-suave">Carregando métricas...</p>
       <div id="painel-metricas-grupo"></div>
@@ -388,7 +416,7 @@
     </section>
 
     <!-- ACOMPANHAMENTO PESSOAL DE LEITURA -->
-    <section id="acompanhamento-leitura" class="card acompanhamento-box oculto">
+    <section id="acompanhamento-leitura" class="card acompanhamento-box oculto" data-pagina-app="metricas">
       <div class="acompanhamento-cabecalho">
         <div>
           <h2 style="margin:0;">📊 Meu acompanhamento de leitura</h2>
@@ -476,7 +504,7 @@
     </section>
 
     <!-- ESPAÇO DOS USUÁRIOS: INDICAÇÕES, VOTAÇÃO E RESENHAS INDIVIDUAIS -->
-    <section id="espaco-usuarios" class="card comunidade-box">
+    <section id="espaco-usuarios" class="card comunidade-box" data-pagina-app="comunidade">
       <div class="comunidade-cabecalho">
         <div>
           <h2 style="margin:0;">🗳️ Comunidade do Clube</h2>
@@ -522,7 +550,7 @@
     </section>
 
     <!-- GUIA DE DISCUSSÃO EDITÁVEL (RETRÁTIL) -->
-    <section class="card guia-box">
+    <section class="card guia-box" data-pagina-app="comunidade">
       <details>
         <summary id="guia-titulo-exibicao">🧭 Guia do Clube: Como abordar o livro e conduzir nossas discussões</summary>
         <div id="guia-conteudo-exibicao" class="guia-texto">Carregando orientações...</div>
@@ -530,7 +558,7 @@
     </section>
 
     <!-- FILTROS -->
-    <section class="filtros-box">
+    <section class="filtros-box" data-pagina-app="livros">
       <h3>Histórico, Leituras do Clube e Resenhas Individuais</h3>
       <div class="linha-filtros">
         <select id="filtro-tipo">
@@ -552,7 +580,7 @@
     </section>
 
     <!-- MÓDULOS DE ENCONTROS E RESENHAS -->
-    <section id="lista-encontros" class="modulos-container"></section>
+    <section id="lista-encontros" class="modulos-container" data-pagina-app="livros"></section>
   </main>
 
   <script src="config.js"></script>

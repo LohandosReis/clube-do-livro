@@ -213,6 +213,7 @@ function renderizarDiretorioPerfis(perfis, mensagem = '') {
     const foto = perfil.foto_url || avatarPadrao(nome);
     const url = new URL(window.location.href);
     url.searchParams.set('perfil', perfil.id);
+    url.searchParams.set('secao', 'perfil-publico');
     url.hash = '';
     return `
       <article class="perfil-membro-card">
@@ -221,7 +222,7 @@ function renderizarDiretorioPerfis(perfis, mensagem = '') {
           <h4>${escaparHTML(nome)}</h4>
         </div>
         <div class="perfil-info-grid">${criarCamposPerfilHTML(perfil)}</div>
-        <a class="btn-secundario btn-mini" href="${escaparHTML(url.href)}" target="_blank" rel="noopener noreferrer">Abrir perfil compartilhado</a>
+        <a class="btn-secundario btn-mini" href="${escaparHTML(url.href)}">Abrir perfil compartilhado</a>
       </article>
     `;
   }).join('');
@@ -240,6 +241,7 @@ function renderizarPerfilCompartilhado(perfil) {
     ${campos
       ? `<div class="perfil-info-grid">${campos}</div>`
       : '<p class="texto-suave">Este membro não compartilhou outras informações do perfil com você.</p>'}
+    <button type="button" class="btn-secundario" data-action="voltar-pagina">← Voltar aos membros</button>
   `;
 }
 

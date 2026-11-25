@@ -4,6 +4,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_TgvyvF09TZLgXP_bLk6K4A_95CEqCpq';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const EMAIL_ADMIN_MASTER = 'lohanpereiradosreis@gmail.com';
+const TAMANHO_MAXIMO_FOTO_PERFIL = 10 * 1024 * 1024;
+const TIPOS_FOTO_PERFIL_ACEITOS = ['image/jpeg', 'image/png', 'image/webp'];
 
 const GENEROS_DISPONIVEIS = [
   'Ficção',
@@ -116,7 +118,18 @@ function formatarDataHoraBR(iso) {
 
 function avatarPadrao(nome = 'L') {
   const inicial = encodeURIComponent((String(nome).trim()[0] || 'L').toUpperCase());
-  return `https://placehold.co/44x44/24426b/ffffff?text=${inicial}`;
+  return `https://placehold.co/44x44/1e4774/ffffff?text=${inicial}`;
+}
+
+function validarArquivoFotoPerfil(arquivo) {
+  if (!arquivo) return '';
+  if (!TIPOS_FOTO_PERFIL_ACEITOS.includes((arquivo.type || '').toLowerCase())) {
+    return 'Formato não aceito. Escolha uma imagem JPG, PNG ou WebP.';
+  }
+  if (arquivo.size > TAMANHO_MAXIMO_FOTO_PERFIL) {
+    return 'A imagem ultrapassa o limite de 10 MB. Escolha um arquivo menor.';
+  }
+  return '';
 }
 
 function parseGeneros(generoValor) {
@@ -143,8 +156,16 @@ async function fazerUploadFotoComprimida(file, prefixo = 'foto') {
 }
 
 async function fazerUploadFotoPerfilComprimida(file, usuarioId) {
+  const erroValidacao = validarArquivoFotoPerfil(file);
+  if (erroValidacao) throw new Error(erroValidacao);
+
   const opcoes = { maxSizeMB: 0.3, maxWidthOrHeight: 1280, useWebWorker: true };
-  const arquivoComprimido = await imageCompression(file, opcoes);
+  let arquivoComprimido;
+  try {
+    arquivoComprimido = await imageCompression(file, opcoes);
+  } catch (error) {
+    throw new Error(`Não foi possível processar a imagem. Tente JPG, PNG ou WebP com até 10 MB. ${error.message || ''}`.trim());
+  }
   const nomeArquivo = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const sufixo = Math.random().toString(36).slice(2, 8);
   const caminho = `${usuarioId}/${Date.now()}-${sufixo}-${nomeArquivo}`;
@@ -153,7 +174,9 @@ async function fazerUploadFotoPerfilComprimida(file, usuarioId) {
     .storage
     .from('fotos-perfis-clube')
     .upload(caminho, arquivoComprimido);
-  if (error) throw error;
+  if (error) {
+    throw new Error(`O armazenamento recusou a foto: ${error.message}. Confira o acesso ao bucket de fotos de perfil.`);
+  }
 
   return caminho;
 }

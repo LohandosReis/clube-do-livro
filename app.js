@@ -246,6 +246,249 @@ async function carregarEncontros() {
   renderizarTela();
 }
 
+const PAGINAS_APP = {
+  inicio: {
+    etiqueta: 'VISÃO GERAL',
+    titulo: 'Início',
+    descricao: 'Acompanhe a leitura atual e as novidades do clube.'
+  },
+  metricas: {
+    etiqueta: 'ACOMPANHAMENTO',
+    titulo: 'Métricas de leitura',
+    descricao: 'Veja o ritmo coletivo e, ao entrar, acompanhe suas metas e seu histórico pessoal.'
+  },
+  livros: {
+    etiqueta: 'BIBLIOTECA',
+    titulo: 'Livros e leituras',
+    descricao: 'Pesquise leituras atuais, próximas, concluídas e resenhas individuais.'
+  },
+  comunidade: {
+    etiqueta: 'PARTICIPAÇÃO',
+    titulo: 'Comunidade',
+    descricao: 'Explore indicações, avaliações, comentários e o guia de discussão.'
+  },
+  perfil: {
+    etiqueta: 'CONTA',
+    titulo: 'Meu perfil',
+    descricao: 'Edite suas informações e escolha o que deseja compartilhar.'
+  },
+  membros: {
+    etiqueta: 'COMUNIDADE',
+    titulo: 'Membros',
+    descricao: 'Encontre membros e veja as informações que escolheram compartilhar.'
+  },
+  'perfil-publico': {
+    etiqueta: 'PERFIL',
+    titulo: 'Perfil compartilhado',
+    descricao: 'Informações que este membro escolheu compartilhar.'
+  },
+  admin: {
+    etiqueta: 'ADMINISTRAÇÃO',
+    titulo: 'Painel administrativo',
+    descricao: 'Gerencie livros, permissões e o guia do clube.'
+  },
+  conta: {
+    etiqueta: 'ACESSO',
+    titulo: 'Entrar no clube',
+    descricao: 'Entre na sua conta ou crie um perfil de membro.'
+  }
+};
+
+let paginaAtualApp = 'inicio';
+let historicoNavegacaoApp = [];
+let paginaAposFluxoConta = '';
+
+function obterPaginaSolicitada() {
+  if (estadoApp.recuperacaoSenhaAtiva) return 'conta';
+  const parametros = new URLSearchParams(window.location.search);
+  if (parametros.has('perfil')) return 'perfil-publico';
+  const solicitada = parametros.get('secao') || 'inicio';
+  return PAGINAS_APP[solicitada] ? solicitada : 'inicio';
+}
+
+function construirUrlPagina(pagina) {
+  const url = new URL(window.location.href);
+  if (pagina === 'inicio') {
+    url.searchParams.delete('secao');
+  } else {
+    url.searchParams.set('secao', pagina);
+  }
+  if (pagina !== 'perfil-publico') url.searchParams.delete('perfil');
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function aplicarPaginaApp(pagina, rolar = true) {
+  if (!PAGINAS_APP[pagina]) pagina = 'inicio';
+  if (pagina === 'conta' && estadoApp.usuario) {
+    navegarParaPagina('inicio');
+    return false;
+  }
+  const paginasProtegidas = ['perfil', 'membros'];
+  if (paginasProtegidas.includes(pagina) && !estadoApp.usuario) {
+    paginaAposFluxoConta = pagina;
+    navegarParaPagina('conta');
+    return false;
+  }
+  if (pagina === 'admin' && !estadoApp.ehAdminMaster) {
+    navegarParaPagina('inicio');
+    return false;
+  }
+
+  paginaAtualApp = pagina;
+  document.querySelectorAll('[data-pagina-app]').forEach(secao => {
+    secao.classList.toggle('pagina-inativa', secao.dataset.paginaApp !== pagina);
+  });
+
+  if (pagina === 'conta') {
+    document.getElementById('secao-conta-usuario').classList.remove('oculto');
+  } else if (pagina === 'perfil') {
+    document.getElementById('secao-perfil-membros').classList.remove('oculto');
+  } else if (pagina === 'membros') {
+    document.getElementById('secao-diretorio-perfis').classList.remove('oculto');
+  } else if (pagina === 'perfil-publico') {
+    document.getElementById('perfil-compartilhado').classList.remove('oculto');
+  }
+
+  const configuracao = PAGINAS_APP[pagina];
+  document.getElementById('pagina-etiqueta').textContent = configuracao.etiqueta;
+  document.getElementById('pagina-titulo').textContent = configuracao.titulo;
+  document.getElementById('pagina-descricao').textContent = configuracao.descricao;
+  document.getElementById('btn-voltar-pagina').classList.toggle('oculto', pagina === 'inicio');
+
+  document.querySelectorAll('[data-navegar]').forEach(botao => {
+    const paginaBotao = botao.dataset.navegar;
+    const paginaAtiva = pagina === 'perfil-publico' ? 'membros' : pagina;
+    if (paginaBotao === paginaAtiva) botao.setAttribute('aria-current', 'page');
+    else botao.removeAttribute('aria-current');
+  });
+
+  if (rolar) window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (pagina === 'perfil' && estadoApp.usuario) carregarMeuPerfil();
+  if (pagina === 'membros' && estadoApp.usuario) buscarPerfis();
+  return true;
+}
+
+function navegarParaPagina(pagina) {
+  if (!PAGINAS_APP[pagina]) return;
+  if (['perfil', 'membros'].includes(pagina) && !estadoApp.usuario) {
+    paginaAposFluxoConta = pagina;
+    navegarParaPagina('conta');
+    return;
+  }
+  if (pagina === 'admin' && !estadoApp.ehAdminMaster) return;
+  if (pagina === 'conta' && paginaAtualApp !== 'conta' && !paginaAposFluxoConta) {
+    paginaAposFluxoConta = paginaAtualApp;
+  }
+
+  const destino = pagina === 'perfil-publico' && !new URLSearchParams(window.location.search).has('perfil')
+    ? 'membros'
+    : pagina;
+  if (destino === paginaAtualApp) {
+    aplicarPaginaApp(destino);
+    return;
+  }
+
+  historicoNavegacaoApp.push(paginaAtualApp);
+  window.history.pushState({ paginaApp: destino }, '', construirUrlPagina(destino));
+  aplicarPaginaApp(destino);
+}
+
+function voltarPaginaAnterior() {
+  if (paginaAtualApp === 'conta') paginaAposFluxoConta = '';
+  if (historicoNavegacaoApp.length) {
+    window.history.back();
+    return;
+  }
+  if (paginaAtualApp === 'perfil-publico' && estadoApp.usuario) {
+    navegarParaPagina('membros');
+    return;
+  }
+  navegarParaPagina('inicio');
+}
+
+function concluirFluxoConta() {
+  const destino = paginaAposFluxoConta || historicoNavegacaoApp[historicoNavegacaoApp.length - 1] || 'inicio';
+  paginaAposFluxoConta = '';
+  if (historicoNavegacaoApp[historicoNavegacaoApp.length - 1] === destino) {
+    window.history.back();
+    return;
+  }
+  window.history.replaceState({ paginaApp: destino }, '', construirUrlPagina(destino));
+  aplicarPaginaApp(destino);
+}
+
+function configurarSeletorFotoPerfil(inputId, previewId, feedbackId) {
+  const input = document.getElementById(inputId);
+  const preview = document.getElementById(previewId);
+  const feedback = document.getElementById(feedbackId);
+  if (!input || !preview || !feedback) return;
+
+  preview.addEventListener('error', () => {
+    if (!preview.getAttribute('src') || preview.classList.contains('oculto')) return;
+    if (preview.dataset.previewUrl) {
+      URL.revokeObjectURL(preview.dataset.previewUrl);
+      delete preview.dataset.previewUrl;
+    }
+    preview.removeAttribute('src');
+    preview.classList.add('oculto');
+    feedback.textContent = 'Não foi possível abrir esta imagem. Tente JPG, PNG ou WebP, com até 10 MB.';
+    feedback.className = 'feedback-foto erro';
+  });
+
+  input.addEventListener('change', () => {
+    const arquivo = input.files[0];
+    if (!arquivo) return;
+    const erro = validarArquivoFotoPerfil(arquivo);
+    if (erro) {
+      input.value = '';
+      if (preview.dataset.previewUrl) {
+        URL.revokeObjectURL(preview.dataset.previewUrl);
+        delete preview.dataset.previewUrl;
+        preview.removeAttribute('src');
+        preview.classList.add('oculto');
+      }
+      feedback.textContent = erro;
+      feedback.className = 'feedback-foto erro';
+      return;
+    }
+
+    if (preview.dataset.previewUrl) URL.revokeObjectURL(preview.dataset.previewUrl);
+    preview.dataset.previewUrl = URL.createObjectURL(arquivo);
+    preview.src = preview.dataset.previewUrl;
+    preview.classList.remove('oculto');
+    feedback.textContent = 'Imagem pronta para envio. Ela será comprimida automaticamente.';
+    feedback.className = 'feedback-foto';
+  });
+}
+
+function limparPrevisualizacaoFotoPerfil(inputId, previewId, feedbackId) {
+  const input = document.getElementById(inputId);
+  const preview = document.getElementById(previewId);
+  const feedback = document.getElementById(feedbackId);
+  if (preview.dataset.previewUrl) {
+    URL.revokeObjectURL(preview.dataset.previewUrl);
+    delete preview.dataset.previewUrl;
+  }
+  preview.removeAttribute('src');
+  preview.classList.add('oculto');
+  input.value = '';
+  feedback.textContent = 'JPG, PNG ou WebP, até 10 MB. A imagem será comprimida antes do envio.';
+  feedback.className = 'feedback-foto';
+}
+
+function inicializarNavegacao() {
+  window.addEventListener('popstate', () => {
+    const destino = obterPaginaSolicitada();
+    if (historicoNavegacaoApp[historicoNavegacaoApp.length - 1] === destino) {
+      historicoNavegacaoApp.pop();
+    } else if (destino !== paginaAtualApp) {
+      historicoNavegacaoApp.push(paginaAtualApp);
+    }
+    aplicarPaginaApp(destino, false);
+  });
+  aplicarPaginaApp(obterPaginaSolicitada(), false);
+}
+
 function registrarEventos() {
   document.addEventListener('click', (event) => {
     const acao = event.target.closest('[data-action]');
@@ -325,22 +568,30 @@ function registrarEventos() {
       case 'excluir-progresso-leitura':
         excluirProgressoLeitura(acao.dataset.data);
         break;
+      case 'voltar-pagina':
+        voltarPaginaAnterior();
+        break;
     }
   });
 
   // Conta e Admin Master
+  document.querySelectorAll('[data-navegar]').forEach(botao => {
+    botao.addEventListener('click', () => {
+      const pagina = botao.dataset.navegar;
+      if (pagina === 'perfil') abrirPainelPerfil();
+      else if (pagina === 'membros') abrirDiretorioMembros();
+      else navegarParaPagina(pagina);
+    });
+  });
+
+  document.getElementById('btn-voltar-pagina').onclick = voltarPaginaAnterior;
   document.getElementById('btn-abrir-conta').onclick = () => {
-    document.getElementById('secao-conta-usuario').classList.remove('oculto');
+    navegarParaPagina('conta');
     if (estadoApp.recuperacaoSenhaAtiva) ativarModoRecuperacaoSenha();
   };
-  document.getElementById('btn-fechar-conta').onclick = () => {
-    document.getElementById('secao-conta-usuario').classList.add('oculto');
-  };
 
-  document.getElementById('btn-abrir-perfil').onclick = abrirPainelPerfil;
-  document.getElementById('btn-fechar-perfil').onclick = () => {
-    document.getElementById('secao-perfil-membros').classList.add('oculto');
-  };
+  configurarSeletorFotoPerfil('perfil-foto', 'perfil-foto-atual', 'perfil-foto-feedback');
+  configurarSeletorFotoPerfil('user-cad-foto', 'user-cad-foto-preview', 'user-cad-foto-feedback');
   configurarSeletoresVisibilidadePerfil();
   document.getElementById('form-perfil-membro').onsubmit = salvarMeuPerfil;
   document.getElementById('form-buscar-perfis').onsubmit = async (event) => {
@@ -365,10 +616,14 @@ function registrarEventos() {
       inputFoto.value = '';
       preview.removeAttribute('src');
       preview.classList.add('oculto');
+      document.getElementById('perfil-foto-feedback').textContent = 'A foto será removida quando você salvar o perfil.';
+      document.getElementById('perfil-foto-feedback').className = 'feedback-foto';
     } else {
       const fotoAtual = estadoApp.perfilUsuario?.foto_url || '';
       preview.src = fotoAtual;
       preview.classList.toggle('oculto', !fotoAtual);
+      document.getElementById('perfil-foto-feedback').textContent = 'JPG, PNG ou WebP, até 10 MB. A imagem será comprimida antes do envio.';
+      document.getElementById('perfil-foto-feedback').className = 'feedback-foto';
     }
   });
 
@@ -669,9 +924,11 @@ function registrarEventos() {
 
 montarSeletoresDeGenero();
 registrarEventos();
+aplicarPaginaApp('inicio', false);
 iniciarMonitoramentoRecuperacaoSenha();
 carregarGuia();
 carregarEncontros().then(async () => {
   await verificarSessao();
+  inicializarNavegacao();
   await carregarPerfilCompartilhadoSolicitado();
 });

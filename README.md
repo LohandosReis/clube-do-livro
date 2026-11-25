@@ -52,6 +52,12 @@ A aplicação está dividida em duas experiências principais:
 
 O perfil **Admin Master** possui acesso ao painel administrativo, à manutenção dos livros e encontros, ao gerenciamento de permissões e à edição do guia.
 
+### Navegação e identidade visual
+
+O conteúdo é organizado em áreas independentes: **Início**, **Métricas**, **Biblioteca**, **Comunidade**, **Meu perfil**, **Membros** e, para o Admin Master, **Administração**. A navegação altera a seção sem recarregar a aplicação, atualiza o endereço com `?secao=` e respeita os botões Voltar do site e do navegador. O perfil próprio e a busca de membros ficam em páginas separadas.
+
+O tema usa superfícies claras como base, azul como cor principal, preto/grafite para texto e vermelho como cor de ênfase e ações de perigo, seguindo a proporção visual aproximada 60/30/10.
+
 ## Funcionalidades
 
 ### Acompanhamento de leituras
@@ -88,6 +94,8 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 - Busca automática de livros nas APIs externas.
 - Seleção múltipla de gêneros.
 - Upload de fotos com compressão no navegador.
+- Fotos de perfil aceitam JPG, PNG e WebP, com limite de 10 MB antes da compressão; a interface mostra prévia e mensagens de validação/envio.
+- Se o cadastro exigir confirmação por e-mail, a foto não é enviada antes da confirmação; a interface orienta o membro a adicioná-la depois de entrar.
 - Remoção individual de fotos já cadastradas.
 - Edição do título e conteúdo do guia de discussão.
 - Listagem de membros, edição de nome/foto e alteração da permissão de publicar resenhas individuais.
@@ -201,12 +209,12 @@ Não há dependências de npm declaradas e não é necessário executar `npm ins
 |---|---|
 | `index.html` | Estrutura da página, formulários, seções e carregamento dos scripts. |
 | `style.css` | Tema visual, componentes, layout responsivo e animações. |
-| `config.js` | Cliente Supabase, administrador mestre, gêneros, estado global e funções utilitárias. |
+| `config.js` | Cliente Supabase, administrador mestre, gêneros, estado global e validação/utilitários de imagem. |
 | `auth.js` | Perfil, sessão, login, cadastro, validação de senha, recuperação de senha, logout e interface de autenticação. |
 | `livros-api.js` | Consultas às APIs externas e preenchimento do formulário administrativo. |
 | `comunidade.js` | Avaliações, comentários, indicações e votos da comunidade. |
 | `ui.js` | Gêneros, fotos, usuários administrativos, placar e renderização da interface. |
-| `app.js` | Inicialização, eventos, CRUD de leituras e resenhas individuais. |
+| `app.js` | Inicialização, navegação e histórico de páginas, eventos, CRUD de leituras e resenhas individuais. |
 | `supabase-migration.sql` | Criação das tabelas, funções, índices implícitos, políticas RLS e Storage. |
 | `README.md` | Documentação completa do projeto. |
 
@@ -672,11 +680,11 @@ O administrador pode habilitar ou revogar essa permissão na aba **Usuários e P
 
 ### Editar perfil e encontrar membros
 
-1. Entrar na conta e abrir **Meu perfil e membros**.
+1. Entrar na conta e abrir **Meu perfil** para editar as próprias informações.
 2. Preencher apenas as informações que deseja compartilhar.
 3. Escolher separadamente quem pode ver cada campo.
-4. Marcar a opção de aparecer no diretório para permitir que outros membros conectados encontrem o perfil.
-5. Salvar. Para restringir uma foto pública antiga, reenviá-la usando o formulário antes de mudar a visibilidade.
+4. Salvar. Para restringir uma foto pública antiga, reenviá-la usando o formulário antes de mudar a visibilidade.
+5. Abrir **Membros** para pesquisar perfis que autorizaram aparecer no diretório.
 
 ## Integrações externas
 
@@ -735,20 +743,22 @@ Na inicialização:
 
 1. `montarSeletoresDeGenero()` popula os campos de gênero.
 2. `registrarEventos()` liga formulários e ações.
-3. `carregarGuia()` busca o registro `id = 1`.
-4. `carregarEncontros()` busca leituras e perfis.
-5. `verificarSessao()` recupera a sessão atual.
-6. `carregarComunidade()` busca avaliações, comentários, indicações e votos.
+3. A seção inicial é apresentada para evitar mostrar todas as áreas durante o carregamento.
+4. `carregarGuia()` busca o registro `id = 1`.
+5. `carregarEncontros()` busca leituras e atualiza perfis, comunidade, progresso pessoal e métricas coletivas.
+6. `verificarSessao()` recupera a sessão atual.
+7. `inicializarNavegacao()` aplica a seção indicada na URL e configura o histórico.
 
 Os dados são carregados novamente após a maioria das operações de escrita.
 
 ## Interface e estilos
 
-O tema utiliza paleta neutra com azul institucional e detalhes em verde, âmbar e roxo.
+O tema combina superfícies claras (60%), azul institucional (30%) e detalhes vermelhos (10%), com texto em grafite/preto. A barra de navegação separa início, métricas, biblioteca, comunidade, perfil, membros e administração.
 
 Principais componentes:
 
-- cabeçalho fixado ao topo do fluxo da página;
+- cabeçalho com navegação principal responsiva;
+- cabeçalho contextual para cada área e retorno à seção anterior;
 - placar de estatísticas;
 - cards com bordas e sombras suaves;
 - painel administrativo com abas;
@@ -761,7 +771,7 @@ Principais componentes:
 - badges de status e nota;
 - botões primário, secundário e de perigo.
 
-O layout tem breakpoint em `600px` e adapta formulários, cabeçalhos e cartões para telas menores.
+O layout tem breakpoint em `600px`; em telas menores, a navegação pode ser rolada horizontalmente e formulários, cabeçalhos e cartões se reorganizam.
 
 Animações são reduzidas quando o usuário possui preferência `prefers-reduced-motion`.
 
@@ -939,11 +949,14 @@ Confira:
 Confira:
 
 - usuário autenticado;
-- bucket `fotos-clube` existente;
-- bucket público;
+- formato JPG, PNG ou WebP;
+- imagem com até 10 MB antes da compressão;
+- bucket `fotos-clube` existente e público para fotos de encontros;
+- bucket privado `fotos-perfis-clube` existente para fotos de perfil;
 - políticas de Storage;
 - limite de tamanho configurado no provedor;
-- suporte do navegador à compressão de imagens.
+- suporte do navegador à compressão de imagens;
+- mensagem de erro e prévia exibidas junto ao campo de foto no perfil.
 
 ### Administração não aparece
 

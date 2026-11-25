@@ -95,6 +95,7 @@ function ativarModoRecuperacaoSenha() {
   estadoApp.progressoPublicado = null;
 
   atualizarInterfaceSessao();
+  navegarParaPagina('conta');
   document.getElementById('secao-conta-usuario').classList.remove('oculto');
   document.getElementById('tab-user-login').classList.add('oculto');
   document.getElementById('tab-user-cadastro').classList.add('oculto');
@@ -342,16 +343,28 @@ async function carregarMeuPerfil() {
   revogarPreviewFotoPerfil(preview);
   preview.src = perfilAssinado.foto_url || '';
   preview.classList.toggle('oculto', !perfilAssinado.foto_url);
+  const feedbackFoto = document.getElementById('perfil-foto-feedback');
+  feedbackFoto.textContent = 'JPG, PNG ou WebP, até 10 MB. A imagem será comprimida antes do envio.';
+  feedbackFoto.className = 'feedback-foto';
   return true;
 }
 
 async function abrirPainelPerfil() {
   if (!estadoApp.usuario) {
-    return mostrarMensagemPerfil('Entre na sua conta para editar o perfil e pesquisar membros.', 'erro');
+    paginaAposFluxoConta = 'perfil';
+    navegarParaPagina('conta');
+    return mostrarMensagemConta('Entre na sua conta para acessar seu perfil.', 'informacao');
   }
-  document.getElementById('secao-perfil-membros').classList.remove('oculto');
-  await carregarMeuPerfil();
-  await buscarPerfis();
+  navegarParaPagina('perfil');
+}
+
+async function abrirDiretorioMembros() {
+  if (!estadoApp.usuario) {
+    paginaAposFluxoConta = 'membros';
+    navegarParaPagina('conta');
+    return mostrarMensagemConta('Entre na sua conta para pesquisar membros.', 'informacao');
+  }
+  navegarParaPagina('membros');
 }
 
 async function salvarMeuPerfil(event) {
@@ -373,12 +386,8 @@ async function salvarMeuPerfil(event) {
   if (listarNoDiretorio && document.getElementById('perfil-vis-nome').value === 'privado') {
     return mostrarMensagemPerfil('Para aparecer na busca, seu nome precisa estar visível ao menos para os membros conectados.', 'erro');
   }
-  if (fotoArquivo && !fotoArquivo.type.startsWith('image/')) {
-    return mostrarMensagemPerfil('Selecione um arquivo de imagem válido.', 'erro');
-  }
-  if (fotoArquivo && fotoArquivo.size > 10 * 1024 * 1024) {
-    return mostrarMensagemPerfil('A foto deve ter no máximo 10 MB antes da compressão.', 'erro');
-  }
+  const erroFoto = validarArquivoFotoPerfil(fotoArquivo);
+  if (erroFoto) return mostrarMensagemPerfil(erroFoto, 'erro');
   if (fotoArquivo && removerFoto) {
     return mostrarMensagemPerfil('Escolha uma foto nova ou marque a remoção, não as duas opções.', 'erro');
   }
@@ -488,6 +497,7 @@ async function carregarPerfilCompartilhadoSolicitado() {
 
   const container = document.getElementById('perfil-compartilhado');
   container.classList.remove('oculto');
+  navegarParaPagina('perfil-publico');
   container.textContent = 'Carregando perfil...';
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(usuarioId)) {
     container.textContent = 'O link do perfil não é válido.';
@@ -520,10 +530,10 @@ function atualizarInterfaceSessao() {
   const painelAdmin = document.getElementById('painel-admin');
   const secaoContaUsuario = document.getElementById('secao-conta-usuario');
   const btnAbrirConta = document.getElementById('btn-abrir-conta');
-  const btnAbrirPerfil = document.getElementById('btn-abrir-perfil');
   const secaoPerfilMembros = document.getElementById('secao-perfil-membros');
   const btnSair = document.getElementById('btn-sair');
   const badgeUsuario = document.getElementById('badge-usuario-logado');
+  const secaoDiretorioPerfis = document.getElementById('secao-diretorio-perfis');
 
   if (!estadoApp.recuperacaoSenhaAtiva && !estadoApp.usuario) {
     document.getElementById('tab-user-login').classList.remove('oculto');
@@ -539,11 +549,16 @@ function atualizarInterfaceSessao() {
     estadoApp.usuario &&
     (estadoApp.usuario.email || '').toLowerCase() === EMAIL_ADMIN_MASTER.toLowerCase()
   );
+  document.querySelectorAll('[data-requer-login]').forEach(elemento => {
+    elemento.classList.toggle('oculto', !estadoApp.usuario);
+  });
+  document.querySelectorAll('[data-requer-admin]').forEach(elemento => {
+    elemento.classList.toggle('oculto', !estadoApp.ehAdminMaster);
+  });
 
   if (estadoApp.usuario) {
     secaoContaUsuario.classList.add('oculto');
     btnAbrirConta.classList.add('oculto');
-    btnAbrirPerfil.classList.remove('oculto');
     btnSair.classList.remove('oculto');
 
     const nomeExibido = estadoApp.perfilUsuario?.nome || estadoApp.usuario.email;
@@ -553,16 +568,31 @@ function atualizarInterfaceSessao() {
       <img src="${escaparHTML(fotoExibida)}" alt="${escaparHTML(nomeExibido)}">
       <span>${escaparHTML(nomeExibido)}${estadoApp.ehAdminMaster ? ' • Admin Master' : ''}</span>
     `;
+    const imagemBadge = badgeUsuario.querySelector('img');
+    imagemBadge.onerror = () => {
+      imagemBadge.onerror = null;
+      imagemBadge.src = avatarPadrao(nomeExibido);
+    };
+    secaoDiretorioPerfis.classList.remove('oculto');
   } else {
     badgeUsuario.classList.add('oculto');
     btnAbrirConta.classList.remove('oculto');
-    btnAbrirPerfil.classList.add('oculto');
     secaoPerfilMembros.classList.add('oculto');
+    secaoDiretorioPerfis.classList.add('oculto');
     limparPainelPerfil();
     btnSair.classList.add('oculto');
   }
 
   painelAdmin.classList.toggle('oculto', !estadoApp.ehAdminMaster);
+  const paginaRestritaSemAcesso = (
+    (!estadoApp.usuario && ['perfil', 'membros'].includes(paginaAtualApp)) ||
+    (paginaAtualApp === 'admin' && !estadoApp.ehAdminMaster)
+  );
+  if (paginaRestritaSemAcesso) {
+    historicoNavegacaoApp = [];
+    window.history.replaceState({ paginaApp: 'inicio' }, '', construirUrlPagina('inicio'));
+    aplicarPaginaApp('inicio', false);
+  }
 
   const btnNovaResenha = document.getElementById('btn-toggle-resenha-individual');
   const liberadoResenha = podeUsuarioPublicarResenha();
@@ -620,6 +650,7 @@ async function entrarComoMembro(email, password) {
     document.getElementById('form-user-login').reset();
     ocultarSenhasExibidas();
     atualizarInterfaceSessao();
+    concluirFluxoConta();
   } catch (error) {
     mostrarMensagemConta(traduzirErroAutenticacao(error), 'erro');
   } finally {
@@ -641,6 +672,8 @@ async function cadastrarMembro({ nome, email, password, confirmarSenha, fotoArqu
   if (password !== confirmarSenha) {
     return mostrarMensagemConta('As senhas não conferem. Digite a mesma senha nos dois campos.', 'erro');
   }
+  const erroFoto = validarArquivoFotoPerfil(fotoArquivo);
+  if (erroFoto) return mostrarMensagemConta(erroFoto, 'erro');
 
   botao.disabled = true;
   botao.textContent = 'Criando conta...';
@@ -671,18 +704,24 @@ async function cadastrarMembro({ nome, email, password, confirmarSenha, fotoArqu
       await carregarComunidade();
       await carregarProgressoLeitura();
       document.getElementById('form-user-cadastro').reset();
+      limparPrevisualizacaoFotoPerfil('user-cad-foto', 'user-cad-foto-preview', 'user-cad-foto-feedback');
       atualizarIndicadorForcaSenha('user-cad-senha', 'user-cad-senha-progresso', 'user-cad-senha-feedback');
       document.getElementById('user-cad-confirma-feedback').textContent = '';
       ocultarSenhasExibidas();
       atualizarInterfaceSessao();
+      concluirFluxoConta();
       alert('Conta criada com sucesso! Bem-vindo(a) ao Clube do Livro.');
     } else {
       document.getElementById('form-user-cadastro').reset();
+      limparPrevisualizacaoFotoPerfil('user-cad-foto', 'user-cad-foto-preview', 'user-cad-foto-feedback');
       atualizarIndicadorForcaSenha('user-cad-senha', 'user-cad-senha-progresso', 'user-cad-senha-feedback');
       document.getElementById('user-cad-confirma-feedback').textContent = '';
       ocultarSenhasExibidas();
+      const avisoFoto = fotoArquivo
+        ? ' A foto não foi enviada porque a conta ainda aguarda confirmação; depois de confirmar o e-mail, entre e adicione a foto em Meu perfil.'
+        : '';
       mostrarMensagemConta(
-        'Cadastro iniciado. Enviamos um link de confirmação para seu e-mail. Abra-o (confira também o spam) e depois entre na sua conta.',
+        `Cadastro iniciado. Enviamos um link de confirmação para seu e-mail. Abra-o (confira também o spam) e depois entre na sua conta.${avisoFoto}`,
         'sucesso'
       );
     }
