@@ -973,7 +973,10 @@ window.salvarPreferenciaCompartilhamento = async () => {
     return alert('Registre pelo menos um dia de leitura antes de publicar seu cartão.');
   }
   if (!publicar && estadoApp.progressoPublicado &&
-      !confirm('Remover seu cartão da seção pública do site?')) return;
+      !confirm('Retirar seu cartão do site? As curtidas e os comentários ligados a ele também serão removidos. Seus registros de leitura, edição e métricas pessoais serão preservados.')) {
+    document.getElementById('progresso-publicado-site').checked = true;
+    return;
+  }
   if (publicar && estadoApp.progressoPublicado &&
       (mostrarNome !== estadoApp.progressoPublicado.mostrar_nome ||
         mostrarFoto !== estadoApp.progressoPublicado.mostrar_foto) &&

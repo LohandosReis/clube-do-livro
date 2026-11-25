@@ -150,6 +150,7 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 - A foto do perfil no cartão também pode ser incluída ou omitida.
 - Os cartões publicados no site mostram a identificação e a paginação do exemplar escolhido pelo membro.
 - A publicação do cartão no site é opt-in e pode ser retirada pela própria pessoa.
+- O autor pode retirar o cartão diretamente na seção pública ou pelo painel de compartilhamento; curtidas e comentários do cartão são removidos, mas os registros diários e as métricas pessoais permanecem.
 
 ### Métricas do grupo
 

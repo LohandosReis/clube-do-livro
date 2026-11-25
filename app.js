@@ -569,6 +569,10 @@ function registrarEventos() {
       case 'apagar-comentario-progresso':
         apagarComentarioProgressoCompartilhado(Number(id));
         break;
+      case 'retirar-publicacao-progresso':
+        document.getElementById('progresso-publicado-site').checked = false;
+        salvarPreferenciaCompartilhamento();
+        break;
       case 'editar-comentario-progresso':
         editarComentarioProgressoCompartilhado(Number(id));
         break;

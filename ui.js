@@ -431,6 +431,7 @@ function renderizarAcompanhamentoLeitura() {
     document.getElementById('progresso-incluir-nome').checked = false;
     document.getElementById('progresso-incluir-foto').checked = false;
     document.getElementById('progresso-publicado-site').checked = false;
+    document.getElementById('btn-retirar-publicacao-progresso').classList.add('oculto');
     return;
   }
 
@@ -712,9 +713,13 @@ function renderizarAcompanhamentoLeitura() {
   const incluirNome = document.getElementById('progresso-incluir-nome');
   const incluirFoto = document.getElementById('progresso-incluir-foto');
   const publicarSite = document.getElementById('progresso-publicado-site');
+  const botaoRetirarPublicacao = document.getElementById('btn-retirar-publicacao-progresso');
   if (incluirNome) incluirNome.checked = Boolean(estadoApp.progressoPublicado?.mostrar_nome);
   if (incluirFoto) incluirFoto.checked = Boolean(estadoApp.progressoPublicado?.mostrar_foto);
   if (publicarSite) publicarSite.checked = Boolean(estadoApp.progressoPublicado);
+  if (botaoRetirarPublicacao) {
+    botaoRetirarPublicacao.classList.toggle('oculto', !estadoApp.progressoPublicado);
+  }
 }
 
 function renderizarInteracoesProgresso(cartao) {
@@ -881,6 +886,7 @@ function renderizarMetricasGrupo() {
               ${percentual !== null ? `<div class="progresso-container"><div class="progresso-barra" style="width:${percentual}%"></div></div>` : ''}
             </div>
             ${renderizarInteracoesProgresso(cartao)}
+            ${cartao.eh_meu ? '<button type="button" class="btn-perigo btn-mini cartao-publico-retirar" data-action="retirar-publicacao-progresso">Retirar meu cartão do site</button>' : ''}
           </article>
         `;
       }).join('')}
