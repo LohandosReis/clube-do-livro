@@ -179,15 +179,27 @@ async function garantirPerfilUsuario(user, nomeInformado = '', fotoUrl = '') {
   if (!user) return null;
 
   const existente = estadoApp.perfis[user.id];
+  const nomeAtualizado = nomeInformado.trim();
+  if (existente && !nomeAtualizado && !fotoUrl) {
+    estadoApp.perfilUsuario = existente;
+    return existente;
+  }
+
   const { data: perfilAtual, error: erroPerfilAtual } = await supabaseClient
     .from('perfis_clube')
     .select('id, nome, foto_url, pode_publicar_resenha, criado_em')
     .eq('id', user.id)
     .maybeSingle();
   if (erroPerfilAtual) throw erroPerfilAtual;
+  if (perfilAtual && !nomeAtualizado && !fotoUrl) {
+    const [perfilAssinado] = await assinarFotosDePerfis([perfilAtual]);
+    estadoApp.perfis[user.id] = perfilAssinado;
+    estadoApp.perfilUsuario = perfilAssinado;
+    return perfilAssinado;
+  }
 
   const nomeFinal =
-    nomeInformado.trim() ||
+    nomeAtualizado ||
     existente?.nome ||
     perfilAtual?.nome ||
     user.user_metadata?.nome ||
