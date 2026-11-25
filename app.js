@@ -306,6 +306,7 @@ function obterPaginaSolicitada() {
 
 function construirUrlPagina(pagina) {
   const url = new URL(window.location.href);
+  url.searchParams.delete('livro');
   if (pagina === 'inicio') {
     url.searchParams.delete('secao');
   } else {
@@ -363,7 +364,35 @@ function aplicarPaginaApp(pagina, rolar = true) {
   if (rolar) window.scrollTo({ top: 0, behavior: 'smooth' });
   if (pagina === 'perfil' && estadoApp.usuario) carregarMeuPerfil();
   if (pagina === 'membros' && estadoApp.usuario) buscarPerfis();
+  if (pagina === 'livros') renderizarTela();
   return true;
+}
+
+function abrirDetalhesLivro(id) {
+  const livro = estadoApp.encontros.find(item => String(item.id) === String(id));
+  if (!livro) return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('secao', 'livros');
+  url.searchParams.set('livro', String(livro.id));
+  window.history.pushState(
+    { paginaApp: 'livros', livroId: String(livro.id) },
+    '',
+    `${url.pathname}${url.search}${url.hash}`
+  );
+  aplicarPaginaApp('livros');
+}
+
+function voltarParaBiblioteca() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('livro');
+  url.searchParams.set('secao', 'livros');
+  window.history.replaceState(
+    { paginaApp: 'livros' },
+    '',
+    `${url.pathname}${url.search}${url.hash}`
+  );
+  aplicarPaginaApp('livros');
 }
 
 function navegarParaPagina(pagina) {
@@ -382,6 +411,10 @@ function navegarParaPagina(pagina) {
     ? 'membros'
     : pagina;
   if (destino === paginaAtualApp) {
+    if (destino === 'livros' && new URLSearchParams(window.location.search).has('livro')) {
+      voltarParaBiblioteca();
+      return;
+    }
     aplicarPaginaApp(destino);
     return;
   }
@@ -505,6 +538,12 @@ function registrarEventos() {
         break;
       case 'comentar-livro':
         enviarComentarioLivro(Number(id));
+        break;
+      case 'ver-detalhes-livro':
+        abrirDetalhesLivro(id);
+        break;
+      case 'voltar-biblioteca':
+        voltarParaBiblioteca();
         break;
       case 'curtir-comentario':
         alternarCurtidaComentario(Number(id));

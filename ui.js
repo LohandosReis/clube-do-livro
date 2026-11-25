@@ -847,7 +847,6 @@ function renderizarTagsGenero(generoValor) {
 
 function renderizarBlocoComentarios(encontroId) {
   const comentariosDoLivro = estadoApp.comentarios.filter(c => c.encontro_id === encontroId);
-  if (!estadoApp.usuario && !comentariosDoLivro.length) return '';
 
   const listaHTML = comentariosDoLivro.length
     ? comentariosDoLivro.map(c => {
@@ -924,7 +923,7 @@ function renderizarBlocoComentarios(encontroId) {
     <div class="comentarios-box">
       <h4 class="comentarios-titulo">💬 Comentários dos Membros (${comentariosDoLivro.length})</h4>
       <div class="comentarios-lista">${listaHTML}</div>
-      ${formularioComentario}
+      ${formularioComentario || '<small>Entre para comentar neste livro.</small>'}
     </div>
   `;
 }
@@ -1000,8 +999,37 @@ function renderizarTela() {
 
   const lista = document.getElementById('lista-encontros');
   lista.innerHTML = '';
+  const filtrosBiblioteca = document.getElementById('filtros-biblioteca');
+  const idLivroDetalhe = new URLSearchParams(window.location.search).get('livro');
+  const livroDetalhado = idLivroDetalhe
+    ? estadoApp.encontros.find(item => String(item.id) === idLivroDetalhe)
+    : null;
+  const modoDetalhe = Boolean(idLivroDetalhe);
 
-  const filtrados = estadoApp.encontros.filter(item => {
+  if (filtrosBiblioteca) filtrosBiblioteca.classList.toggle('oculto', modoDetalhe);
+  lista.classList.toggle('modulos-container--detalhe', modoDetalhe);
+
+  if (modoDetalhe) {
+    document.getElementById('pagina-etiqueta').textContent = 'BIBLIOTECA';
+    document.getElementById('pagina-titulo').textContent = livroDetalhado?.titulo || 'Detalhes do livro';
+    document.getElementById('pagina-descricao').textContent = livroDetalhado
+      ? 'Informações completas, notas e comentários dos leitores.'
+      : 'Não foi possível encontrar este livro.';
+
+    if (!livroDetalhado) {
+      lista.innerHTML = `
+        <div class="card detalhe-livro-nao-encontrado">
+          <p>Este livro não está disponível na biblioteca.</p>
+          <button type="button" class="btn-secundario" data-action="voltar-biblioteca">← Voltar para a biblioteca</button>
+        </div>
+      `;
+      return;
+    }
+  }
+
+  const filtrados = modoDetalhe
+    ? [livroDetalhado]
+    : estadoApp.encontros.filter(item => {
     const tipoItem = item.tipo_postagem || 'clube';
     const bateTipo = tipoFiltro === 'todos' || tipoItem === tipoFiltro;
     const bateStatus = statusFiltro === 'todos' || item.status === statusFiltro;
@@ -1027,10 +1055,13 @@ function renderizarTela() {
   }
 
   filtrados.forEach(item => {
+    const exibindoDetalhes = modoDetalhe;
     const ehIndividual = (item.tipo_postagem || 'clube') === 'individual';
-    const fotosHTML = (item.fotos || [])
-      .map(url => `<img src="${escaparHTML(url)}" alt="Foto do encontro" loading="lazy">`)
-      .join('');
+    const fotosHTML = exibindoDetalhes
+      ? (item.fotos || [])
+        .map(url => `<img src="${escaparHTML(url)}" alt="Foto de ${escaparHTML(item.titulo)}" loading="lazy">`)
+        .join('')
+      : '';
 
     const podeGerenciarModulo = estadoApp.usuario && (
       estadoApp.ehAdminMaster || (ehIndividual && item.autor_postagem_id === estadoApp.usuario.id)
@@ -1072,10 +1103,10 @@ function renderizarTela() {
         </div>
       `
       : '';
-    const controlesAdminAvaliacoes = estadoApp.ehAdminMaster && avaliacoesLivro.length
+    const notasUsuarios = avaliacoesLivro.length
       ? `
-        <details class="admin-avaliacoes">
-          <summary>Gerenciar avaliações (${avaliacoesLivro.length})</summary>
+        <section class="notas-usuarios-livro">
+          <h4>⭐ Notas dos leitores (${avaliacoesLivro.length})</h4>
           <div class="admin-avaliacoes-lista">
             ${avaliacoesLivro.map(avaliacao => {
               const perfil = estadoApp.perfis[avaliacao.usuario_id] || {};
@@ -1083,24 +1114,26 @@ function renderizarTela() {
               return `
                 <div class="admin-avaliacao-item">
                   <span><strong>${escaparHTML(nome)}</strong>: ${escaparHTML(avaliacao.nota)}/5</span>
-                  <div>
-                    <button type="button" class="btn-secundario btn-mini" data-action="editar-avaliacao" data-id="${avaliacao.encontro_id}" data-usuario-id="${escaparHTML(avaliacao.usuario_id)}">Editar</button>
-                    <button type="button" class="btn-perigo btn-mini" data-action="excluir-avaliacao" data-id="${avaliacao.encontro_id}" data-usuario-id="${escaparHTML(avaliacao.usuario_id)}">Excluir</button>
-                  </div>
+                  ${estadoApp.ehAdminMaster
+                    ? `<div>
+                         <button type="button" class="btn-secundario btn-mini" data-action="editar-avaliacao" data-id="${avaliacao.encontro_id}" data-usuario-id="${escaparHTML(avaliacao.usuario_id)}">Editar</button>
+                         <button type="button" class="btn-perigo btn-mini" data-action="excluir-avaliacao" data-id="${avaliacao.encontro_id}" data-usuario-id="${escaparHTML(avaliacao.usuario_id)}">Excluir</button>
+                       </div>`
+                    : ''}
                 </div>
               `;
             }).join('')}
           </div>
-        </details>
+        </section>
       `
-      : '';
+      : '<p class="texto-suave">Ainda não há notas dos leitores para este livro.</p>';
 
     const badgeIndividual = ehIndividual
       ? `<span class="tag tag-individual">✍️ Resenha Individual${item.autor_postagem_nome ? ` • ${escaparHTML(item.autor_postagem_nome)}` : ''}</span>`
       : '';
 
     lista.innerHTML += `
-      <article class="modulo-livro">
+      <article class="modulo-livro ${exibindoDetalhes ? 'modulo-livro--detalhe' : 'modulo-livro--resumo'}">
         <div class="modulo-cabecalho">
           <div class="modulo-info-topo">
             <img src="${escaparHTML(item.capa || 'https://placehold.co/65x95?text=Capa')}" alt="Capa de ${escaparHTML(item.titulo)}">
@@ -1119,20 +1152,30 @@ function renderizarTela() {
           ${botoesAdmin}
         </div>
         <div class="modulo-corpo">
-          ${item.horario_local ? `<p class="linha-meta-modulo">📍 <strong>Local/Horário:</strong> ${escaparHTML(item.horario_local)}</p>` : ''}
-          ${item.bio_autor ? `<div class="bloco-bio-autor">✍️ <strong>Sobre o Escritor / Contexto:</strong>\n${escaparHTML(formatarTextoMultilinha(item.bio_autor))}</div>` : ''}
-          ${item.discussao
-            ? `<details class="spoiler-box">
-                 <summary>💬 Ver discussões, resenha e anotações (Contém Spoilers)</summary>
-                 <div class="texto-spoiler">${escaparHTML(formatarTextoMultilinha(item.discussao))}</div>
-               </details>`
-            : ''}
-          ${fotosHTML ? `<div class="galeria-fotos">${fotosHTML}</div>` : ''}
-
-          ${controlesAvaliacao}
-          ${controlesAdminAvaliacoes}
-
-          ${renderizarBlocoComentarios(item.id)}
+          ${exibindoDetalhes
+            ? `
+              <button type="button" class="btn-secundario btn-voltar-biblioteca" data-action="voltar-biblioteca">← Voltar para a biblioteca</button>
+              ${item.horario_local ? `<p class="linha-meta-modulo">📍 <strong>Local/Horário:</strong> ${escaparHTML(item.horario_local)}</p>` : ''}
+              ${item.meta_texto ? `<p class="linha-meta-modulo"><strong>🎯 Meta de leitura:</strong> ${escaparHTML(item.meta_texto)}</p>` : ''}
+              ${item.bio_autor ? `<div class="bloco-bio-autor">✍️ <strong>Sobre o Escritor / Contexto:</strong>\n${escaparHTML(formatarTextoMultilinha(item.bio_autor))}</div>` : ''}
+              ${item.discussao
+                ? `<details class="spoiler-box">
+                     <summary>💬 Ver discussões, resenha e anotações (Contém Spoilers)</summary>
+                     <div class="texto-spoiler">${escaparHTML(formatarTextoMultilinha(item.discussao))}</div>
+                   </details>`
+                : ''}
+              ${fotosHTML ? `<div class="galeria-fotos">${fotosHTML}</div>` : ''}
+              <section class="notas-livro-detalhe">
+                <h4>Notas dos leitores</h4>
+                <p>${infoMedia.media !== null
+                  ? `Média: ⭐ ${escaparHTML(infoMedia.media)}/5${infoMedia.total ? ` (${infoMedia.total} ${infoMedia.total === 1 ? 'avaliação' : 'avaliações'})` : ' (nota de referência)'}`
+                  : 'Este livro ainda não recebeu avaliações.'}</p>
+                ${notasUsuarios}
+                ${controlesAvaliacao}
+              </section>
+              ${renderizarBlocoComentarios(item.id)}
+            `
+            : `<button type="button" class="btn-primario btn-ver-detalhes" data-action="ver-detalhes-livro" data-id="${item.id}">Ver detalhes e comentários</button>`}
         </div>
       </article>
     `;

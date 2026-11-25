@@ -80,6 +80,8 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
   - `clube`: livros e encontros administrados pelo clube;
   - `individual`: leituras e resenhas publicadas por membros habilitados.
 - Cadastro de título, autor, capa, gêneros, status, data, local, páginas, nota, contexto e discussão.
+- Biblioteca em grade com capa e informações principais; cada livro abre uma página de detalhes com encontro, contexto do autor, notas, resenhas, fotos e comentários.
+- A página de detalhes oferece retorno direto à biblioteca e mantém suporte ao histórico do navegador.
 - Galeria de fotos por encontro.
 - Filtro por:
   - tipo da postagem;
