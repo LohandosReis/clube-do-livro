@@ -290,6 +290,34 @@ window.salvarEdicaoLeitura = async (nomeEdicao, paginas) => {
   alert('Sua edição foi salva. Seu progresso será calculado usando o total de páginas informado.');
 };
 
+window.apagarEdicaoLeitura = async () => {
+  if (!estadoApp.usuario) return alert('Entre na sua conta para apagar sua edição.');
+
+  const atual = estadoApp.encontros.find(
+    item => item.status === 'atual' && (item.tipo_postagem || 'clube') === 'clube'
+  );
+  if (!atual || !estadoApp.edicaoLeitura) {
+    return alert('Não há uma edição pessoal cadastrada para apagar.');
+  }
+
+  if (!confirm(
+    'Apagar sua edição deste livro? Seus registros diários serão mantidos, mas seu progresso deixará de entrar nas métricas por edição até você cadastrar uma edição novamente. Se seu cartão estiver publicado, ele continuará no site e usará o total de páginas cadastrado pelo clube.'
+  )) return;
+
+  const { error } = await supabaseClient
+    .from('edicoes_leitura')
+    .delete()
+    .eq('usuario_id', estadoApp.usuario.id)
+    .eq('encontro_id', atual.id);
+
+  if (error) return alert('Erro ao apagar sua edição: ' + error.message);
+
+  limparCartaoProgresso();
+  await carregarProgressoLeitura();
+  await carregarMetricasGrupo();
+  alert('Sua edição foi apagada. Seus registros diários foram mantidos.');
+};
+
 window.salvarProgressoLeitura = async (dataLeitura, paginas) => {
   if (!estadoApp.usuario) {
     alert('Entre na sua conta para registrar sua leitura.');

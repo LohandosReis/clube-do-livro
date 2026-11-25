@@ -67,6 +67,7 @@ O tema usa superfícies claras como base, azul como cor principal, preto/grafite
 - Exibição da data, local ou horário do encontro.
 - Meta textual da leitura.
 - Cada membro informa a edição/formato e o total de páginas do próprio exemplar.
+- O membro pode apagar a edição informada; os registros diários são mantidos, mas deixam de compor as métricas por edição até que outra edição seja cadastrada.
 - A barra coletiva calcula a média dos percentuais individuais usando o total de páginas de cada exemplar, sem aplicar o número de páginas de uma edição a todas as outras.
 - O percentual individual é limitado a 100%; a tela informa quantas pessoas cadastraram uma edição e quantas registraram páginas.
 - As métricas do grupo também são agrupadas pela identificação da edição e pelo total de páginas.

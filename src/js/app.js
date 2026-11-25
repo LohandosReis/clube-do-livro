@@ -787,6 +787,16 @@ function registrarEventos() {
     }
   };
 
+  document.getElementById('btn-apagar-edicao').onclick = async (event) => {
+    const botao = event.currentTarget;
+    botao.disabled = true;
+    try {
+      await apagarEdicaoLeitura();
+    } finally {
+      botao.disabled = false;
+    }
+  };
+
   document.getElementById('form-progresso-leitura').onsubmit = async (event) => {
     event.preventDefault();
     const botao = document.getElementById('btn-salvar-progresso');

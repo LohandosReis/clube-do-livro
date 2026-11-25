@@ -201,8 +201,10 @@ function renderizarAcompanhamentoLeitura() {
   const campoEdicao = document.getElementById('edicao-leitura-nome');
   const campoPaginasEdicao = document.getElementById('edicao-leitura-paginas');
   const avisoEdicao = document.getElementById('aviso-edicao-leitura');
+  const botaoApagarEdicao = document.getElementById('btn-apagar-edicao');
   if (campoEdicao) campoEdicao.value = edicaoLeitura?.edicao || '';
   if (campoPaginasEdicao) campoPaginasEdicao.value = edicaoConfigurada ? totalPaginasEdicao : '';
+  if (botaoApagarEdicao) botaoApagarEdicao.classList.toggle('oculto', !edicaoLeitura);
   if (avisoEdicao) avisoEdicao.classList.toggle('oculto', edicaoConfigurada);
   document.getElementById('btn-salvar-progresso').disabled = !edicaoConfigurada;
   tituloLivro.textContent = `Livro atual: ${atual.titulo} — ${atual.autor}${edicaoConfigurada ? ` · Sua edição: ${edicaoLeitura.edicao} (${totalPaginasEdicao} páginas)` : ''}`;
