@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clube-do-livro-shell-v1';
+const CACHE_NAME = 'clube-do-livro-shell-v2';
 const SHELL_FILES = [
   './index.html',
   './manifest.webmanifest',

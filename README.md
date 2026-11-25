@@ -57,7 +57,7 @@ O perfil **Admin Master** possui acesso ao painel administrativo, à manutençã
 
 O conteúdo é organizado em áreas independentes: **Início**, **Métricas**, **Biblioteca**, **Comunidade**, **Meu perfil**, **Membros** e, para o Admin Master, **Administração**. A navegação altera a seção sem recarregar a aplicação, atualiza o endereço com `?secao=` e respeita os botões Voltar do site e do navegador. O perfil próprio e a busca de membros ficam em páginas separadas.
 
-O tema usa superfícies claras como base, azul como cor principal, preto/grafite para texto e vermelho como cor de ênfase e ações de perigo, seguindo a proporção visual aproximada 60/30/10.
+O tema editorial usa tons de papel e marfim como base, verde-oliva escuro para navegação e ações principais, terracota como detalhe e tipografia serifada nos títulos. A paleta e os raios dos componentes ficam centralizados nas variáveis CSS de `src/css/style.css` para facilitar ajustes visuais sem alterar os fluxos ou os dados.
 
 ## Funcionalidades
 

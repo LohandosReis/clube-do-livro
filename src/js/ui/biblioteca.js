@@ -147,7 +147,7 @@ function renderizarTela() {
         <img src="${escaparHTML(atual.capa || 'https://placehold.co/65x95?text=Capa')}" alt="Capa de ${escaparHTML(atual.titulo)}">
         <div style="flex:1;">
           <div>${renderizarTagsGenero(atual.genero)}</div>
-          <h3 style="margin:6px 0 4px 0;">${escaparHTML(atual.titulo)} — <small>${escaparHTML(atual.autor)}</small></h3>
+          <h3 style="margin:6px 0 4px 0;">${escaparHTML(atual.titulo)} <small>por ${escaparHTML(atual.autor)}</small></h3>
           <p style="margin:4px 0;">📅 <strong>Data do Encontro:</strong> ${escaparHTML(formatarDataBR(atual.data_encontro))} ${atual.horario_local ? `(${escaparHTML(atual.horario_local)})` : ''}</p>
           ${atual.meta_texto ? `<p style="margin:4px 0;"><strong>🎯 Meta Atual:</strong> ${escaparHTML(atual.meta_texto)}</p>` : ''}
           ${renderizarProgressoGrupo()}
@@ -303,7 +303,7 @@ function renderizarTela() {
               ${badgeIndividual}
               <span class="tag tag-status">${escaparHTML(labelsStatus[item.status] || item.status)}</span>
               ${renderizarTagsGenero(item.genero)}
-              <span class="tag" style="background:#555;">${escaparHTML(formatarDataBR(item.data_encontro))}</span>
+              <span class="tag tag-data">${escaparHTML(formatarDataBR(item.data_encontro))}</span>
               ${infoMedia.media !== null
                 ? `<span class="tag tag-nota">⭐ ${escaparHTML(infoMedia.media)}/5${infoMedia.total ? ` (${infoMedia.total} ${infoMedia.total === 1 ? 'nota' : 'notas'})` : ''}</span>`
                 : ''}
